@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import * as api from '../lib/api'
 import { QUIET_LIST_WINDOW_DAYS } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
+import { LEVELS } from '../lib/constants'
 import { getCurrentLevel } from '../lib/levelStats'
 import StudentAvatar from '../components/StudentAvatar.jsx'
+import { LevelIcon } from '../components/Butterfly.jsx'
 import Butterfly from '../components/Butterfly.jsx'
 import NoteComposer from '../components/NoteComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -113,6 +115,20 @@ export default function ClassOverview() {
     }
     return list
   }, [students, sortBy, currentLevelByStudent])
+
+  // When sorting by level, group into labeled sections instead of just
+  // silently reordering the grid — the level should be obvious at a glance,
+  // not something you infer from position.
+  const levelGroups = useMemo(() => {
+    if (sortBy !== 'level') return null
+    const buckets = { secure: [], developing: [], emerging: [], none: [] }
+    for (const s of sortedStudents) {
+      const lvl = currentLevelByStudent[s.id]?.level ?? 'none'
+      buckets[lvl].push(s)
+    }
+    const order = [...LEVELS.slice().reverse(), { value: 'none', label: 'Not yet leveled', emoji: '❔' }]
+    return order.map((l) => ({ level: l, students: buckets[l.value] })).filter((g) => g.students.length > 0)
+  }, [sortBy, sortedStudents, currentLevelByStudent])
 
   async function handleSaveNote(values) {
     await api.createObservation({
@@ -239,35 +255,43 @@ export default function ClassOverview() {
                 Add your class
               </Link>
             </div>
+          ) : levelGroups ? (
+            <div className="stack">
+              {levelGroups.map(({ level, students: group }) => (
+                <div key={level.value}>
+                  <div className="level-group-heading">
+                    {level.value === 'none' ? (
+                      <span style={{ fontSize: '1.2rem' }}>{level.emoji}</span>
+                    ) : (
+                      <LevelIcon level={level.value} size={22} />
+                    )}
+                    <span>{level.label}</span>
+                    <span className="muted" style={{ fontWeight: 400 }}>({group.length})</span>
+                  </div>
+                  <div className="class-grid">
+                    {group.map((student) => (
+                      <StudentCard
+                        key={student.id}
+                        student={student}
+                        quiet={quietStudentIds.has(student.id)}
+                        emerging={emergingStudentIds.has(student.id)}
+                        onQuickAdd={() => setComposerStudent(student)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="class-grid">
               {sortedStudents.map((student) => (
-                <div key={student.id} className="student-card-wrap">
-                  <Link to={`/students/${student.id}`} className="student-card">
-                    {quietStudentIds.has(student.id) && (
-                      <span className="student-card__flag student-card__flag--quiet" title="Quiet lately — fewest notes recently">
-                        🌙
-                      </span>
-                    )}
-                    {emergingStudentIds.has(student.id) && (
-                      <span className="student-card__flag student-card__flag--emerging" title="Still emerging — worth a closer look">
-                        🐛
-                      </span>
-                    )}
-                    <StudentAvatar student={student} size={68} />
-                    <span className="student-card__name">
-                      {student.first_name} {student.last_initial}.
-                    </span>
-                  </Link>
-                  <button
-                    className="student-card__view-btn"
-                    onClick={() => setComposerStudent(student)}
-                    title={`Add a note for ${student.first_name}`}
-                    aria-label={`Add a note for ${student.first_name}`}
-                  >
-                    ✏️
-                  </button>
-                </div>
+                <StudentCard
+                  key={student.id}
+                  student={student}
+                  quiet={quietStudentIds.has(student.id)}
+                  emerging={emergingStudentIds.has(student.id)}
+                  onQuickAdd={() => setComposerStudent(student)}
+                />
               ))}
             </div>
           )}
@@ -289,6 +313,37 @@ export default function ClassOverview() {
       )}
 
       {toastNode}
+    </div>
+  )
+}
+
+function StudentCard({ student, quiet, emerging, onQuickAdd }) {
+  return (
+    <div className="student-card-wrap">
+      <Link to={`/students/${student.id}`} className="student-card">
+        {quiet && (
+          <span className="student-card__flag student-card__flag--quiet" title="Quiet lately — fewest notes recently">
+            🌙
+          </span>
+        )}
+        {emerging && (
+          <span className="student-card__flag student-card__flag--emerging" title="Still emerging — worth a closer look">
+            🐛
+          </span>
+        )}
+        <StudentAvatar student={student} size={68} />
+        <span className="student-card__name">
+          {student.first_name} {student.last_initial}.
+        </span>
+      </Link>
+      <button
+        className="student-card__view-btn"
+        onClick={onQuickAdd}
+        title={`Add a note for ${student.first_name}`}
+        aria-label={`Add a note for ${student.first_name}`}
+      >
+        ✏️
+      </button>
     </div>
   )
 }

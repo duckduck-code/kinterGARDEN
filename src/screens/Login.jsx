@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../lib/useAuth.jsx'
 import { enablePreviewMode, previewAllowed } from '../lib/mockData'
 import Butterfly, { SparkleIcon } from '../components/Butterfly.jsx'
@@ -32,6 +32,21 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('idle') // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('')
+
+  // A magic link that failed (expired, already used, or the redirect URL
+  // wasn't on Supabase's allow-list) bounces back here with the reason
+  // encoded in the URL — surface it instead of silently landing on a blank
+  // login form, which is impossible to debug from the user's side.
+  useEffect(() => {
+    const raw = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.search.slice(1)
+    const params = new URLSearchParams(raw)
+    const description = params.get('error_description')
+    if (description) {
+      setStatus('error')
+      setErrorMsg(description.replace(/\+/g, ' '))
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()

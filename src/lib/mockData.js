@@ -1,17 +1,22 @@
-// Dev-only sample data and a matching in-memory "API" so the app's screens
-// can be previewed without a real Supabase session — useful while waiting
-// on email rate limits, or just for visual review. `isPreviewMode()` is
-// gated on `import.meta.env.DEV`, which Vite hard-codes to `false` in a
-// production build, so none of this can ever ship or leak real data access.
+// Sample data and a matching in-memory "API" so the app's screens can be
+// explored without a real Supabase session — useful while waiting on email
+// rate limits, for visual review, or as a public demo. Always available in
+// local dev (`import.meta.env.DEV`); on a production build it's off unless
+// the deployment explicitly sets `VITE_ALLOW_PREVIEW=true` — a leaked
+// production URL exposes nothing by default, same as the real login gate.
 
 const PREVIEW_KEY = 'gt-preview-mode'
 
+export function previewAllowed() {
+  return import.meta.env.DEV || import.meta.env.VITE_ALLOW_PREVIEW === 'true'
+}
+
 export function isPreviewMode() {
-  return import.meta.env.DEV && typeof window !== 'undefined' && window.localStorage.getItem(PREVIEW_KEY) === '1'
+  return previewAllowed() && typeof window !== 'undefined' && window.localStorage.getItem(PREVIEW_KEY) === '1'
 }
 
 export function enablePreviewMode() {
-  if (!import.meta.env.DEV) return
+  if (!previewAllowed()) return
   window.localStorage.setItem(PREVIEW_KEY, '1')
   window.location.reload()
 }

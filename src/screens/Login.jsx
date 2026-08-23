@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/useAuth.jsx'
-import { enablePreviewMode } from '../lib/mockData'
+import { enablePreviewMode, previewAllowed } from '../lib/mockData'
 import Butterfly, { SparkleIcon } from '../components/Butterfly.jsx'
 import '../styles/login.css'
 
@@ -119,14 +119,14 @@ export default function Login() {
           </form>
         )}
 
-        {import.meta.env.DEV && (
+        {previewAllowed() && (
           <button
             type="button"
             onClick={enablePreviewMode}
             className="login-tagline"
             style={{ background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.8rem', marginTop: 24, opacity: 0.85 }}
           >
-            Skip login — preview with sample data (dev only)
+            {import.meta.env.DEV ? 'Skip login — preview with sample data (dev only)' : 'Try a demo with sample data'}
           </button>
         )}
       </div>

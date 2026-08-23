@@ -46,7 +46,9 @@ npm run dev
 ## Deploying
 
 - **Vercel**: import the repo, add the two `VITE_SUPABASE_*` env vars in Project Settings, deploy. Framework preset: Vite.
+- **Supabase auth URLs**: in **Authentication → URL Configuration**, set **Site URL** to your deployed URL (not `localhost`), and add that same URL under **Redirect URLs**. Magic links silently fall back to the Site URL when the requested redirect isn't on the allow-list, so this step is what actually makes login work off your own machine.
 - **Keepalive**: Supabase free projects pause after 7 days idle. [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml) pings the database twice a week to prevent this. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository secrets (Settings → Secrets and variables → Actions) for it to work.
+- **Public demo mode (optional)**: the login screen's "sample data preview" bypass (see `src/lib/mockData.js`) only ever works on `npm run dev` unless you explicitly set `VITE_ALLOW_PREVIEW=true` as a Vercel environment variable. It uses fake in-memory data only — never touches Supabase — but it does mean anyone with the deployed link can explore the app without logging in, so leave it unset unless you want that.
 
 ## Project structure
 

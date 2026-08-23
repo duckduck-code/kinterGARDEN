@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as api from '../lib/api'
-import { LEVELS, LEVEL_MAP } from '../lib/constants'
-import { formatShortDate } from '../lib/format'
-import StudentAvatar from '../components/StudentAvatar.jsx'
+import { LEVELS, LEVEL_MAP, TERMS } from '../lib/constants'
+import { formatShortDate, getTermDateRange } from '../lib/format'
 import GrowthStrip from '../components/GrowthStrip.jsx'
 import '../styles/print.css'
 
@@ -18,16 +17,17 @@ export default function Reports() {
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState('students') // 'students' | 'progress'
-  const [includeSummaries, setIncludeSummaries] = useState(false)
   const [includeGrowthStrip, setIncludeGrowthStrip] = useState(false)
+  const [includeSummaryTerms, setIncludeSummaryTerms] = useState({ fall: false, winter: false, spring: false })
 
   const [selectedStudentIds, setSelectedStudentIds] = useState(new Set())
   const [obsByStudent, setObsByStudent] = useState({})
   const [selectedObsByStudent, setSelectedObsByStudent] = useState({})
   const [summariesByStudent, setSummariesByStudent] = useState({})
   const [loadingDetail, setLoadingDetail] = useState(false)
-  const [focusDomainId, setFocusDomainId] = useState('')
-  const [focusUnitId, setFocusUnitId] = useState('')
+
+  const [domainFilter, setDomainFilter] = useState('')
+  const [termFilter, setTermFilter] = useState('')
 
   const [yearObservations, setYearObservations] = useState(null)
   const [loadingProgress, setLoadingProgress] = useState(false)
@@ -109,30 +109,6 @@ export default function Reports() {
     })
   }
 
-  function applyLessonFocusToAll() {
-    setSelectedObsByStudent((prev) => {
-      const next = { ...prev }
-      for (const student of selectedStudents) {
-        const obs = obsByStudent[student.id] ?? []
-        next[student.id] = new Set(obs.filter((o) => o.unit_id === focusUnitId).map((o) => o.id))
-      }
-      return next
-    })
-  }
-
-  function clearLessonFocus() {
-    setFocusDomainId('')
-    setFocusUnitId('')
-    setSelectedObsByStudent((prev) => {
-      const next = { ...prev }
-      for (const student of selectedStudents) {
-        const obs = obsByStudent[student.id] ?? []
-        next[student.id] = new Set(obs.map((o) => o.id))
-      }
-      return next
-    })
-  }
-
   function toggleObs(studentId, obsId) {
     setSelectedObsByStudent((prev) => {
       const set = new Set(prev[studentId] ?? [])
@@ -141,19 +117,68 @@ export default function Reports() {
     })
   }
 
-  function setObsGroup(studentId, obsIds, included) {
+  // Bulk action spanning every student at once — entries carry {id, student}.
+  function setNotesIncluded(entries, included) {
     setSelectedObsByStudent((prev) => {
-      const set = new Set(prev[studentId] ?? [])
-      for (const id of obsIds) {
-        included ? set.add(id) : set.delete(id)
+      const next = { ...prev }
+      const byStudent = {}
+      for (const e of entries) {
+        byStudent[e.student.id] = byStudent[e.student.id] ?? []
+        byStudent[e.student.id].push(e.id)
       }
-      return { ...prev, [studentId]: set }
+      for (const [studentId, ids] of Object.entries(byStudent)) {
+        const set = new Set(next[studentId] ?? [])
+        for (const id of ids) included ? set.add(id) : set.delete(id)
+        next[studentId] = set
+      }
+      return next
     })
   }
 
   const selectedStudents = useMemo(
     () => students.filter((s) => selectedStudentIds.has(s.id)),
     [students, selectedStudentIds]
+  )
+
+  const termRange = useMemo(() => (termFilter ? getTermDateRange(schoolYear, termFilter) : null), [schoolYear, termFilter])
+
+  // The curated view: every note from every included student, filtered by
+  // domain/term, organized as Domain -> Unit -> notes (each tagged with its
+  // student) so bulk actions apply across the whole class at once.
+  const curationGroups = useMemo(() => {
+    const domainsToShow = domainFilter ? domains.filter((d) => d.id === domainFilter) : domains
+    const groups = []
+    for (const domain of domainsToShow) {
+      const unitBuckets = {}
+      const generalNotes = []
+      for (const student of selectedStudents) {
+        for (const obs of obsByStudent[student.id] ?? []) {
+          if (!obs.domainIds.includes(domain.id)) continue
+          if (termRange && (obs.observed_on < termRange[0] || obs.observed_on > termRange[1])) continue
+          const entry = { ...obs, student }
+          if (obs.unit_id) {
+            unitBuckets[obs.unit_id] = unitBuckets[obs.unit_id] ?? []
+            unitBuckets[obs.unit_id].push(entry)
+          } else {
+            generalNotes.push(entry)
+          }
+        }
+      }
+      const unitGroups = Object.entries(unitBuckets)
+        .map(([unitId, notes]) => ({ unitId, label: unitMap[unitId]?.label ?? 'Unit', notes }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+      generalNotes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
+      for (const g of unitGroups) g.notes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
+      if (unitGroups.length > 0 || generalNotes.length > 0) {
+        groups.push({ domain, unitGroups, generalNotes })
+      }
+    }
+    return groups
+  }, [domains, domainFilter, termRange, selectedStudents, obsByStudent, unitMap])
+
+  const allVisibleEntries = useMemo(
+    () => curationGroups.flatMap((g) => [...g.unitGroups.flatMap((u) => u.notes), ...g.generalNotes]),
+    [curationGroups]
   )
 
   if (loading) return <p className="muted">Loading…</p>
@@ -196,104 +221,125 @@ export default function Reports() {
       ) : (
         <>
           <section className="card stack no-print">
-            <div className="spread">
-              <h2 style={{ margin: 0 }}>Who's included</h2>
-              <div className="row">
-                <button className="btn btn-ghost" onClick={() => setSelectedStudentIds(new Set(students.map((s) => s.id)))}>
-                  Select all
-                </button>
-                <button className="btn btn-ghost" onClick={() => setSelectedStudentIds(new Set())}>
-                  Deselect all
-                </button>
+            <h2>Filters</h2>
+            <p className="field-hint" style={{ margin: 0 }}>
+              These narrow what you&rsquo;re curating below — nothing gets removed from the report just by
+              filtering, only by unchecking it.
+            </p>
+
+            <div className="field" style={{ marginBottom: 0 }}>
+              <div className="spread">
+                <label style={{ marginBottom: 4 }}>Students</label>
+                <div className="row" style={{ gap: 'var(--space-2)' }}>
+                  <button className="obs-table__link" onClick={() => setSelectedStudentIds(new Set(students.map((s) => s.id)))}>
+                    select all
+                  </button>
+                  <button className="obs-table__link" onClick={() => setSelectedStudentIds(new Set())}>
+                    deselect all
+                  </button>
+                </div>
+              </div>
+              <div className="tag-row">
+                {students.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={selectedStudentIds.has(s.id) ? 'tag' : 'tag tag-outline'}
+                    onClick={() => toggleStudent(s.id)}
+                  >
+                    {s.first_name} {s.last_initial}.
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="stack">
-              {students.map((s) => (
-                <label key={s.id} className="row" style={{ fontWeight: 400 }}>
-                  <input type="checkbox" checked={selectedStudentIds.has(s.id)} onChange={() => toggleStudent(s.id)} />
-                  {s.first_name} {s.last_initial}.
-                </label>
-              ))}
-            </div>
-          </section>
 
-          <section className="card stack no-print">
-            <h2>Lesson focus</h2>
-            <p className="field-hint" style={{ margin: 0 }}>
-              Pick a domain and unit to build a report for that lesson across every included student at once —
-              overrides each student's checkboxes below.
-            </p>
             <div className="row" style={{ flexWrap: 'wrap' }}>
-              <select
-                value={focusDomainId}
-                onChange={(e) => {
-                  setFocusDomainId(e.target.value)
-                  setFocusUnitId('')
-                }}
-                style={{ maxWidth: 200 }}
-              >
-                <option value="">Choose a domain…</option>
-                {domains.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.icon} {d.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={focusUnitId}
-                onChange={(e) => setFocusUnitId(e.target.value)}
-                disabled={!focusDomainId}
-                style={{ maxWidth: 220 }}
-              >
-                <option value="">Choose a unit…</option>
-                {units
-                  .filter((u) => u.domain_id === focusDomainId)
-                  .map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.label}
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="domain-filter">Domain</label>
+                <select id="domain-filter" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} style={{ maxWidth: 220 }}>
+                  <option value="">All domains</option>
+                  {domains.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.icon} {d.name}
                     </option>
                   ))}
-              </select>
-              <button className="btn btn-secondary" onClick={applyLessonFocusToAll} disabled={!focusUnitId}>
-                Apply to all students
-              </button>
-              {focusUnitId && (
-                <button className="btn btn-ghost" onClick={clearLessonFocus}>
-                  Clear focus
-                </button>
-              )}
+                </select>
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="term-filter">Term</label>
+                <select id="term-filter" value={termFilter} onChange={(e) => setTermFilter(e.target.value)} style={{ maxWidth: 160 }}>
+                  <option value="">Whole year</option>
+                  {TERMS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 
           <section className="card stack no-print">
             <h2>Report options</h2>
             <p className="field-hint" style={{ margin: 0 }}>
-              The default report is lean — student name, then date and note grouped by domain. Add sections back in
-              if you want them.
+              The default report is lean — student name, then date and note grouped by domain and unit.
             </p>
-            <label className="row" style={{ fontWeight: 400 }}>
-              <input type="checkbox" checked={includeSummaries} onChange={(e) => setIncludeSummaries(e.target.checked)} />
-              Include term summaries
-            </label>
             <label className="row" style={{ fontWeight: 400 }}>
               <input type="checkbox" checked={includeGrowthStrip} onChange={(e) => setIncludeGrowthStrip(e.target.checked)} />
               Include growth strip
             </label>
+            <div>
+              <label style={{ marginBottom: 4 }}>Include term summaries</label>
+              <div className="row">
+                {TERMS.map((t) => (
+                  <label key={t.value} className="row" style={{ fontWeight: 400, gap: 4 }}>
+                    <input
+                      type="checkbox"
+                      checked={includeSummaryTerms[t.value]}
+                      onChange={(e) => setIncludeSummaryTerms((prev) => ({ ...prev, [t.value]: e.target.checked }))}
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+            </div>
           </section>
 
           {loadingDetail && <p className="muted no-print">Loading report details…</p>}
 
-          {selectedStudents.map((student) => (
-            <StudentCurationCard
-              key={student.id}
-              student={student}
-              observations={obsByStudent[student.id] ?? []}
-              selectedIds={selectedObsByStudent[student.id] ?? new Set()}
-              unitMap={unitMap}
-              onToggleObs={(obsId) => toggleObs(student.id, obsId)}
-              onSetGroup={(obsIds, included) => setObsGroup(student.id, obsIds, included)}
-            />
-          ))}
+          <section className="card stack no-print">
+            <div className="spread">
+              <h2 style={{ margin: 0 }}>Build the summary</h2>
+              <div className="row">
+                <button className="btn btn-secondary" onClick={() => setNotesIncluded(allVisibleEntries, true)} disabled={allVisibleEntries.length === 0}>
+                  Select all visible
+                </button>
+                <button className="btn btn-ghost" onClick={() => setNotesIncluded(allVisibleEntries, false)} disabled={allVisibleEntries.length === 0}>
+                  Remove all visible
+                </button>
+              </div>
+            </div>
+            <p className="field-hint" style={{ margin: 0 }}>
+              Everything starts checked. Uncheck raw daily notes that aren&rsquo;t parent-appropriate — the report
+              should read as a curated summary, not the full working history.
+            </p>
+
+            {curationGroups.length === 0 && <p className="muted">No notes match these filters.</p>}
+
+            <div className="stack">
+              {curationGroups.map(({ domain, unitGroups, generalNotes }) => (
+                <div key={domain.id} className="curation-domain">
+                  <h3>{domain.icon} {domain.name}</h3>
+                  {unitGroups.map((u) => (
+                    <CurationUnit key={u.unitId} label={u.label} entries={u.notes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
+                  ))}
+                  {generalNotes.length > 0 && (
+                    <CurationUnit label="General" entries={generalNotes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
 
           <div className="report-print-area">
             {selectedStudents.map((student) => (
@@ -305,7 +351,7 @@ export default function Reports() {
                 unitMap={unitMap}
                 observations={(obsByStudent[student.id] ?? []).filter((o) => selectedObsByStudent[student.id]?.has(o.id))}
                 summaries={summariesByStudent[student.id] ?? {}}
-                includeSummaries={includeSummaries}
+                includeSummaryTerms={includeSummaryTerms}
                 includeGrowthStrip={includeGrowthStrip}
               />
             ))}
@@ -316,63 +362,37 @@ export default function Reports() {
   )
 }
 
-function StudentCurationCard({ student, observations, selectedIds, unitMap, onToggleObs, onSetGroup }) {
-  const unitGroups = useMemo(() => {
-    const groups = {}
-    for (const obs of observations) {
-      const key = obs.unit_id || UNGROUPED
-      groups[key] = groups[key] ?? []
-      groups[key].push(obs)
-    }
-    return Object.entries(groups)
-      .filter(([key]) => key !== UNGROUPED)
-      .map(([key, notes]) => ({ id: key, label: unitMap[key]?.label ?? 'Unit', notes }))
-  }, [observations, unitMap])
-
+function CurationUnit({ label, entries, onToggle, onSetGroup, selectedObsByStudent }) {
   return (
-    <section className="card stack no-print">
-      <div className="row">
-        <StudentAvatar student={student} />
-        <h3 style={{ margin: 0 }}>{student.first_name} {student.last_initial}. — build the summary</h3>
-      </div>
-      <p className="field-hint" style={{ marginTop: 0 }}>
-        Everything starts checked. Uncheck raw daily notes that aren't parent-appropriate — the report should read
-        as a curated summary, not the full working history.
-      </p>
-
-      {unitGroups.length > 0 && (
-        <div className="tag-row">
-          {unitGroups.map((g) => (
-            <span key={g.id} className="row" style={{ gap: 4 }}>
-              <button type="button" className="tag" onClick={() => onSetGroup(g.notes.map((o) => o.id), true)}>
-                ✓ {g.label} ({g.notes.length})
-              </button>
-              <button type="button" className="tag tag-outline" onClick={() => onSetGroup(g.notes.map((o) => o.id), false)}>
-                ✕
-              </button>
-            </span>
-          ))}
+    <div className="curation-unit">
+      <div className="curation-unit__header">
+        <span className="report-unit-heading" style={{ margin: 0 }}>
+          {label} <span className="muted" style={{ fontWeight: 400 }}>({entries.length})</span>
+        </span>
+        <div className="row" style={{ gap: 'var(--space-2)' }}>
+          <button className="btn btn-secondary" style={{ padding: '4px 14px', minHeight: 32, fontSize: '0.8rem' }} onClick={() => onSetGroup(entries, true)}>
+            Select all
+          </button>
+          <button className="btn btn-ghost" style={{ padding: '4px 14px', minHeight: 32, fontSize: '0.8rem' }} onClick={() => onSetGroup(entries, false)}>
+            Remove all
+          </button>
         </div>
-      )}
-
-      <div className="stack">
-        {observations.map((obs) => (
-          <label key={obs.id} className="row" style={{ fontWeight: 400, alignItems: 'flex-start' }}>
+      </div>
+      <div className="stack" style={{ gap: 4 }}>
+        {entries.map((entry) => (
+          <label key={entry.id} className="curation-note">
             <input
               type="checkbox"
-              checked={selectedIds.has(obs.id)}
-              onChange={() => onToggleObs(obs.id)}
-              style={{ marginTop: 4 }}
+              checked={selectedObsByStudent[entry.student.id]?.has(entry.id) ?? false}
+              onChange={() => onToggle(entry.student.id, entry.id)}
             />
-            <span>
-              <span className="utility muted">{formatShortDate(obs.observed_on)}</span>
-              {obs.unit_id && unitMap[obs.unit_id] && <span className="utility muted"> · {unitMap[obs.unit_id].label}</span>} —{' '}
-              {obs.body}
-            </span>
+            <span className="curation-note__student">{entry.student.first_name} {entry.student.last_initial}.</span>
+            <span className="utility muted curation-note__date">{formatShortDate(entry.observed_on)}</span>
+            <span className="curation-note__body">{entry.body}</span>
           </label>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -389,7 +409,7 @@ function groupByUnit(observations, unitMap) {
   return keys.map((key) => ({ unit: key === UNGROUPED ? null : unitMap[key]?.label ?? null, notes: groups[key] }))
 }
 
-function ReportPage({ student, schoolYear, domains, unitMap, observations, summaries, includeSummaries, includeGrowthStrip }) {
+function ReportPage({ student, schoolYear, domains, unitMap, observations, summaries, includeSummaryTerms, includeGrowthStrip }) {
   const byDomain = {}
   const undomained = []
   for (const obs of observations) {
@@ -408,16 +428,12 @@ function ReportPage({ student, schoolYear, domains, unitMap, observations, summa
       <h1 className="report-header">{student.first_name} {student.last_initial}.</h1>
       <hr className="report-rule" />
 
-      {includeSummaries &&
-        ['fall', 'winter', 'spring'].map(
-          (term) =>
-            summaries[term] && (
-              <div key={term} className="report-section" style={{ marginBottom: '0.1in' }}>
-                <div className="report-domain-heading">{term[0].toUpperCase() + term.slice(1)} summary</div>
-                <p className="report-observation">{summaries[term]}</p>
-              </div>
-            )
-        )}
+      {TERMS.filter((t) => includeSummaryTerms[t.value] && summaries[t.value]).map((t) => (
+        <div key={t.value} className="report-section" style={{ marginBottom: '0.1in' }}>
+          <div className="report-domain-heading">{t.label} summary</div>
+          <p className="report-observation">{summaries[t.value]}</p>
+        </div>
+      ))}
 
       {includeGrowthStrip && (
         <div className="report-section" style={{ marginBottom: '0.1in' }}>
@@ -505,6 +521,7 @@ function ClassProgressView({ loading, observations, domains, unitMap, students }
             acc[level.value] = Object.values(byStudent).filter((o) => o.level === level.value)
             return acc
           }, {}),
+          total: Object.keys(byStudent).length,
         }))
       return { domain, unitList }
     }).filter((d) => d.unitList.length > 0)
@@ -520,38 +537,33 @@ function ClassProgressView({ loading, observations, domains, unitMap, students }
         not a score. ★ marks the most common level for that unit.
       </p>
       {byDomain.map(({ domain, unitList }) => (
-        <section key={domain.id} className="card stack">
-          <h2 style={{ margin: 0 }}>{domain.icon} {domain.name}</h2>
+        <section key={domain.id} className="card stack progress-domain">
+          <h2 className="progress-domain__title">{domain.icon} {domain.name}</h2>
           {unitList.map((u, i) => {
             const maxCount = Math.max(...LEVELS.map((level) => u.byLevel[level.value].length))
             return (
-              <div key={`${u.unit}-${i}`} style={{ borderTop: '1px solid var(--chrome)', paddingTop: 'var(--space-2)' }}>
-                <div className="report-unit-heading" style={{ margin: '0 0 6px' }}>{u.unit}</div>
-                <div className="row" style={{ flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div key={`${u.unit}-${i}`} className="progress-unit">
+                <div className="progress-unit__label">{u.unit}</div>
+                <div className="progress-unit__bars">
                   {LEVELS.map((level) => {
                     const list = u.byLevel[level.value]
-                    if (list.length === 0) return null
+                    const pct = u.total > 0 ? Math.round((list.length / u.total) * 100) : 0
                     const isMost = maxCount > 0 && list.length === maxCount
                     return (
-                      <div key={level.value} style={{ minWidth: 140 }}>
-                        <div
-                          className="tag"
-                          style={
-                            isMost
-                              ? { marginBottom: 4, background: 'var(--grape)', color: 'var(--white)', fontWeight: 700 }
-                              : { marginBottom: 4 }
-                          }
-                        >
-                          {isMost && '★ '}
-                          {LEVEL_MAP[level.value].emoji} {level.label} ({list.length})
+                      <div key={level.value} className="progress-bar-row">
+                        <span className="progress-bar-row__level">
+                          {isMost && list.length > 0 && '★ '}
+                          {LEVEL_MAP[level.value].emoji} {level.label}
+                        </span>
+                        <div className="progress-bar-row__track">
+                          <div className="progress-bar-row__fill" style={{ width: `${pct}%`, background: isMost ? 'var(--grape)' : 'var(--chrome)' }} />
                         </div>
-                        <div className="stack" style={{ gap: 2 }}>
-                          {list.map((obs) => (
-                            <span key={obs.id} style={{ fontSize: '0.8rem' }}>
-                              {studentMap[obs.student_id]?.first_name} {studentMap[obs.student_id]?.last_initial}.
-                            </span>
-                          ))}
-                        </div>
+                        <span className="progress-bar-row__count">{list.length}</span>
+                        {list.length > 0 && (
+                          <span className="progress-bar-row__names">
+                            {list.map((obs) => `${studentMap[obs.student_id]?.first_name} ${studentMap[obs.student_id]?.last_initial}.`).join(', ')}
+                          </span>
+                        )}
                       </div>
                     )
                   })}

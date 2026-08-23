@@ -488,6 +488,134 @@ select:focus {
   color: var(--danger);
 }
 
+/* ---------------------------------------------------------------------- */
+/* Report curation — domain/unit grouped, bulk-select friendly            */
+/* ---------------------------------------------------------------------- */
+
+.curation-domain {
+  border: 1px solid var(--chrome);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.curation-domain h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.curation-unit {
+  margin-bottom: var(--space-3);
+}
+
+.curation-unit:last-child {
+  margin-bottom: 0;
+}
+
+.curation-unit__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.curation-note {
+  display: grid;
+  grid-template-columns: 22px auto auto 1fr;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.curation-note:hover {
+  background: var(--cloud);
+}
+
+.curation-note__student {
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.curation-note__date {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.curation-note__body {
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Class progress — bigger, bar-based                                     */
+/* ---------------------------------------------------------------------- */
+
+.progress-domain__title {
+  font-size: 1.4rem;
+}
+
+.progress-unit {
+  border-top: 1px solid var(--chrome);
+  padding-top: var(--space-3);
+}
+
+.progress-unit__label {
+  font-family: var(--font-utility);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: var(--space-2);
+}
+
+.progress-unit__bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.progress-bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 28px;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.progress-bar-row__level {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.progress-bar-row__track {
+  height: 14px;
+  background: var(--cloud);
+  border-radius: var(--radius-round);
+  overflow: hidden;
+}
+
+.progress-bar-row__fill {
+  height: 100%;
+  border-radius: var(--radius-round);
+  transition: width var(--transition-med);
+}
+
+.progress-bar-row__count {
+  font-family: var(--font-utility);
+  font-weight: 700;
+  text-align: right;
+}
+
+.progress-bar-row__names {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  padding-left: 2px;
+}
+
 .pinned-notes {
   background: var(--white);
   border: 2px solid var(--butter);

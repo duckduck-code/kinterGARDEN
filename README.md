@@ -19,7 +19,7 @@ npm install
 1. Create a free project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run [`supabase/schema.sql`](supabase/schema.sql) once. It creates the tables, enables Row Level Security, and seeds the default domains and a starter school year (edit the label/dates in the file first, or fix them later in Settings).
 3. Go to **Authentication → Providers → Email** and turn **off** "Allow new users to sign up." This app never has public signup — only the two invited accounts.
-4. Go to **Authentication → Users → Invite user** and invite yourself and the teacher by email.
+4. Go to **Authentication → Users → Invite user** and invite yourself and the teacher by email. Each person clicks "Accept invitation" in the email, which is also where Supabase has them set their password (the app itself uses email + password login, not magic links — simpler and more reliable across devices/browsers than a redirect-based flow).
 5. After each person accepts their invite, copy their user UUID from the Users list and insert a matching row in `profiles`:
 
    ```sql
@@ -28,6 +28,8 @@ npm install
    ```
 
    Without a `profiles` row, RLS blocks all access — signing in alone isn't enough, by design (see `docs/requirements.md` R2.5).
+
+   If someone forgets their password later, use **Authentication → Users → (their row) → Send password recovery** — there's no in-app "forgot password" flow, by design, since only the admin needs to be able to fix this for a two-person app.
 
 ### 3. Configure environment variables
 
@@ -46,7 +48,6 @@ npm run dev
 ## Deploying
 
 - **Vercel**: import the repo, add the two `VITE_SUPABASE_*` env vars in Project Settings, deploy. Framework preset: Vite.
-- **Supabase auth URLs**: in **Authentication → URL Configuration**, set **Site URL** to your deployed URL (not `localhost`), and add that same URL under **Redirect URLs**. Magic links silently fall back to the Site URL when the requested redirect isn't on the allow-list, so this step is what actually makes login work off your own machine.
 - **Keepalive**: Supabase free projects pause after 7 days idle. [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml) pings the database twice a week to prevent this. Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository secrets (Settings → Secrets and variables → Actions) for it to work.
 - **Public demo mode (optional)**: the login screen's "sample data preview" bypass (see `src/lib/mockData.js`) only ever works on `npm run dev` unless you explicitly set `VITE_ALLOW_PREVIEW=true` as a Vercel environment variable. It uses fake in-memory data only — never touches Supabase — but it does mean anyone with the deployed link can explore the app without logging in, so leave it unset unless you want that.
 

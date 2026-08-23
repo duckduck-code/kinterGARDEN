@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../lib/useAuth.jsx'
 import { enablePreviewMode, previewAllowed } from '../lib/mockData'
 import Butterfly, { SparkleIcon } from '../components/Butterfly.jsx'
@@ -28,37 +28,23 @@ const SPARKLES = [
 ]
 
 export default function Login() {
-  const { signInWithEmail } = useAuth()
+  const { signInWithPassword } = useAuth()
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState('idle') // idle | sending | sent | error
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState('idle') // idle | sending | error
   const [errorMsg, setErrorMsg] = useState('')
-
-  // A magic link that failed (expired, already used, or the redirect URL
-  // wasn't on Supabase's allow-list) bounces back here with the reason
-  // encoded in the URL — surface it instead of silently landing on a blank
-  // login form, which is impossible to debug from the user's side.
-  useEffect(() => {
-    const raw = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.search.slice(1)
-    const params = new URLSearchParams(raw)
-    const description = params.get('error_description')
-    if (description) {
-      setStatus('error')
-      setErrorMsg(description.replace(/\+/g, ' '))
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!email) return
+    if (!email || !password) return
     setStatus('sending')
-    const { error } = await signInWithEmail(email.trim())
+    const { error } = await signInWithPassword(email.trim(), password)
     if (error) {
       setStatus('error')
-      setErrorMsg(error.message)
-    } else {
-      setStatus('sent')
+      setErrorMsg(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
     }
+    // On success, useAuth's session listener flips the app over — nothing
+    // else to do here.
   }
 
   return (
@@ -95,44 +81,45 @@ export default function Login() {
         <h1 className="login-welcome">Welcome</h1>
         <p className="login-tagline">Kindergarten 2026–2027</p>
 
-        {status === 'sent' ? (
-          <div className="stack" style={{ textAlign: 'center' }}>
-            <p className="login-sent-text">
-              Check <strong>{email}</strong> for a sign-in link. Tap it on this device to continue.
-            </p>
-            <button className="btn btn-ghost" style={{ color: 'var(--white)' }} onClick={() => setStatus('idle')}>
-              Use a different email
-            </button>
+        <form onSubmit={handleSubmit} className="stack">
+          <div className="field" style={{ textAlign: 'left', marginBottom: 0 }}>
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@school.edu"
+            />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="stack">
-            <div className="field" style={{ textAlign: 'left', marginBottom: 0 }}>
-              <label htmlFor="email">Email address</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@school.edu"
-              />
-            </div>
-            {status === 'error' && (
-              <p style={{ color: 'var(--white)', background: 'rgba(209,53,90,0.85)', borderRadius: 12, padding: '8px 14px' }}>
-                {errorMsg}
-              </p>
-            )}
-            <button type="submit" className="btn login-btn" disabled={status === 'sending'}>
-              <Butterfly size={28} />
-              {status === 'sending' ? 'Sending link…' : 'Sign in'}
-            </button>
-            <p className="login-tagline" style={{ fontSize: '0.85rem', margin: 0 }}>
-              No password needed. Accounts are set up by invitation only.
+          <div className="field" style={{ textAlign: 'left', marginBottom: 0 }}>
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+          {status === 'error' && (
+            <p style={{ color: 'var(--white)', background: 'rgba(209,53,90,0.85)', borderRadius: 12, padding: '8px 14px' }}>
+              {errorMsg}
             </p>
-          </form>
-        )}
+          )}
+          <button type="submit" className="btn login-btn" disabled={status === 'sending'}>
+            <Butterfly size={28} />
+            {status === 'sending' ? 'Signing in…' : 'Sign in'}
+          </button>
+          <p className="login-tagline" style={{ fontSize: '0.85rem', margin: 0 }}>
+            Accounts are set up by invitation only.
+          </p>
+        </form>
 
         {previewAllowed() && (
           <button

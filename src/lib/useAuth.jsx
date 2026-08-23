@@ -34,14 +34,12 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe()
   }, [loadProfile])
 
-  const signInWithEmail = useCallback(async (email) => {
-    // shouldCreateUser: false — this app never creates accounts from the
-    // login form. Only the two invited users (already in auth.users) can
-    // sign in; everyone else is rejected before a magic link is even sent.
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
-    })
+  // Password auth — no redirect hop, so no dependency on redirect-URL config,
+  // in-app browsers, or session persistence surviving a cross-domain jump.
+  // Accounts still only ever exist via manual invite (see supabase/schema.sql);
+  // this just changes how an already-invited person proves who they are.
+  const signInWithPassword = useCallback(async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error }
   }, [])
 
@@ -57,7 +55,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!session,
     isAuthorized: !!profile,
     isAdmin: profile?.role === 'admin',
-    signInWithEmail,
+    signInWithPassword,
     signOut,
   }
 

@@ -1,0 +1,215 @@
+/* Login screen only — full glitter Y2K treatment. This is a desktop-only,
+   once-in-a-while screen (not the classroom daily-use UI), so it gets to be
+   as loud and fun as the rest of the app stays restrained. Every looping
+   animation is switched off under prefers-reduced-motion. */
+
+.login-page {
+  position: fixed;
+  inset: 0;
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(
+    120deg,
+    var(--bubblegum) 0%,
+    var(--lavender) 25%,
+    var(--babyblue) 50%,
+    var(--butter) 75%,
+    var(--bubblegum) 100%
+  );
+  background-size: 400% 400%;
+  animation: login-gradient-shift 18s ease infinite;
+}
+
+@keyframes login-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.login-page__glitter {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.9) 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 1.2px, transparent 1.6px);
+  background-size: 90px 90px, 130px 130px, 65px 65px;
+  background-position: 0 0, 40px 60px, 20px 90px;
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+.login-butterfly {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 14px rgba(107, 47, 160, 0.4));
+  animation: login-float 7s ease-in-out infinite;
+}
+
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, 0deg));
+  }
+  50% {
+    transform: translateY(-22px) rotate(calc(var(--rot, 0deg) + 6deg));
+  }
+}
+
+.login-sparkle {
+  position: absolute;
+  pointer-events: none;
+  color: var(--white);
+  animation: login-twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes login-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(25deg);
+  }
+}
+
+/* No card, no box — everything floats directly on the animated background. */
+
+.login-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 560px;
+  padding: 0 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.login-welcome {
+  font-family: var(--font-script);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 6.5rem;
+  line-height: 1;
+  margin: 0 0 8px;
+  color: var(--white);
+  text-shadow: 0 2px 0 var(--grape-deep), 0 6px 24px rgba(75, 27, 107, 0.55), 0 0 40px rgba(255, 255, 255, 0.5);
+}
+
+.login-tagline {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--white);
+  text-shadow: 0 2px 10px rgba(75, 27, 107, 0.5);
+  margin: 0 0 40px;
+  font-size: 1.15rem;
+}
+
+.login-content form,
+.login-content .stack {
+  width: 100%;
+  gap: 18px;
+}
+
+.login-content input[type='email'] {
+  border: none;
+  border-radius: 999px;
+  padding: 18px 26px;
+  font-size: 1.1rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(107, 47, 160, 0.25);
+}
+
+.login-content label {
+  color: var(--white);
+  text-shadow: 0 2px 8px rgba(107, 47, 160, 0.5);
+}
+
+.login-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 20px 28px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--white);
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--grape), var(--bubblegum), var(--grape-deep), var(--grape));
+  background-size: 300% auto;
+  animation: login-shimmer 5s linear infinite;
+  box-shadow: 0 16px 40px rgba(107, 47, 160, 0.55), 0 0 0 4px rgba(255, 255, 255, 0.45);
+  transition: transform var(--transition-fast);
+}
+
+.login-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.login-btn svg {
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes login-shimmer {
+  to {
+    background-position: 300% center;
+  }
+}
+
+.login-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  transform: skewX(-20deg);
+  animation: login-shine 3.5s ease-in-out infinite;
+}
+
+@keyframes login-shine {
+  0% {
+    left: -60%;
+  }
+  50%,
+  100% {
+    left: 130%;
+  }
+}
+
+.login-sent-text {
+  color: var(--white);
+  text-shadow: 0 2px 10px rgba(107, 47, 160, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page,
+  .login-butterfly,
+  .login-sparkle,
+  .login-btn,
+  .login-btn::after {
+    animation: none !important;
+  }
+}

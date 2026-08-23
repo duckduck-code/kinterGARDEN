@@ -1,0 +1,53 @@
+:root {
+  /* Palette — see docs/requirements.md §5. Pink/lavender never carry small
+     text; body text is always --ink on --cloud or white. */
+  --bubblegum: #ff4fa3;
+  --barbie: #e0218a;
+  --lavender: #c8a2e8;
+  --grape: #9b5de5;       /* vivid purple — the forward accent, leads over pink */
+  --grape-deep: #6b2fa0;  /* deep purple — headings, emphasis text */
+  --babyblue: #a7d8f0;
+  --butter: #fff6a9;
+  --chrome: #d9dde8;
+  --ink: #3b1f4a;
+  --cloud: #fff9fc;
+
+  --white: #ffffff;
+  --ink-soft: #6b5478;
+  --danger: #d1355a;
+
+  --gradient-sparkle: linear-gradient(135deg, var(--grape) 0%, var(--bubblegum) 55%, var(--babyblue) 100%);
+
+  --font-display: 'Baloo 2', system-ui, sans-serif;
+  --font-script: 'Dancing Script', cursive;
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-utility: 'Space Grotesk', ui-monospace, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-round: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --shadow-card: 0 2px 8px rgba(59, 31, 74, 0.1);
+  --shadow-pop: 0 6px 20px rgba(224, 33, 138, 0.22);
+
+  --touch-min: 44px;
+
+  --transition-fast: 120ms ease;
+  --transition-med: 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-med: 0ms;
+  }
+}

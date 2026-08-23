@@ -1,0 +1,165 @@
+/* Report print styles — R3.6.3/R3.6.4. Loaded only on the Reports screen.
+   No glitter, no gradients, no animation, no emoji. Black text on white,
+   a thin rule in the header, tight but legible spacing, and page-break
+   control so a student's report never splits mid-section. */
+
+@media screen {
+  .report-print-area {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-5);
+  }
+}
+
+/* Date badges need a visible gap from the note body on screen too, not just
+   in print — this isn't inside @media print on purpose. */
+.obs-date {
+  font-family: var(--font-utility);
+  font-size: 0.75em;
+  color: var(--ink-soft);
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.report-table th {
+  text-align: left;
+  font-weight: 700;
+}
+
+.report-table td {
+  vertical-align: top;
+}
+
+.report-unit-heading {
+  font-family: var(--font-utility);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: var(--space-2) 0 4px;
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.4in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .report-print-area,
+  .report-print-area * {
+    visibility: visible;
+  }
+
+  .report-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .report-page {
+    page-break-after: always;
+  }
+
+  .report-page:last-child {
+    page-break-after: auto;
+  }
+
+  .report-section {
+    break-inside: avoid;
+  }
+
+  * {
+    color: #000 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+  }
+
+  .report-rule {
+    border: none;
+    border-top: 1px solid #000;
+    margin: 0.06in 0 0.1in;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: #000 !important;
+  }
+
+  .report-header {
+    font-size: 16pt;
+    margin: 0 0 0.02in;
+  }
+
+  .report-domain-heading {
+    font-family: var(--font-display);
+    font-size: 11pt;
+    margin: 0.08in 0 3pt;
+    border-bottom: 1px solid #000;
+    padding-bottom: 1pt;
+  }
+
+  .report-unit-heading {
+    color: #333 !important;
+    margin: 4pt 0 1pt;
+  }
+
+  .report-observation {
+    font-size: 9.5pt;
+    line-height: 1.35;
+    margin: 0 0 2pt;
+  }
+
+  .obs-date {
+    font-size: 7.5pt;
+    color: #333 !important;
+  }
+
+  .report-table {
+    margin-bottom: 4pt;
+  }
+
+  .report-table th {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #333 !important;
+    border-bottom: 1px solid #000;
+    padding: 2pt 6pt 2pt 0;
+  }
+
+  .report-table td {
+    font-size: 9.5pt;
+    line-height: 1.3;
+    border-bottom: 0.5pt solid #ccc;
+    padding: 3pt 6pt 3pt 0;
+  }
+
+  .report-row--flagged td:first-child {
+    border-left: 2pt solid var(--danger);
+    padding-left: 4pt;
+  }
+
+  .report-growth-strip {
+    filter: grayscale(1) contrast(1.4);
+  }
+}

@@ -73,7 +73,7 @@ export default function MyNotes() {
     <div className="stack">
       <div className="page-header">
         <div>
-          <h1>My Notes</h1>
+          <h1>Teacher&rsquo;s Corner</h1>
           <p className="muted" style={{ margin: 0 }}>
             A space just for you — ideas, what went well, what to change. Never shown to anyone else, never printed.
           </p>

@@ -81,7 +81,7 @@ function AppHeader({ preview }) {
       <nav>
         <NavLink to="/rollcall">Roll Call</NavLink>
         <NavLink to="/flagged">Flagged</NavLink>
-        <NavLink to="/my-notes">My Notes</NavLink>
+        <NavLink to="/my-notes">Teacher&rsquo;s Corner</NavLink>
         <NavLink to="/reports">Reports</NavLink>
         <NavLink to="/settings">Settings</NavLink>
         <button onClick={preview ? disablePreviewMode : signOut}>{preview ? 'Exit preview' : 'Sign out'}</button>

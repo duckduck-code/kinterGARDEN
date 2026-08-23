@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import * as api from '../lib/api'
 import { TERMS, LEVEL_MAP, PINNED_CATEGORIES, PINNED_CATEGORY_MAP } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
+import { getCurrentLevel } from '../lib/levelStats'
 import StudentAvatar from '../components/StudentAvatar.jsx'
+import { LevelIcon } from '../components/Butterfly.jsx'
 import GrowthStrip from '../components/GrowthStrip.jsx'
 import NoteComposer from '../components/NoteComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -23,6 +25,7 @@ export default function StudentProfile() {
   const [error, setError] = useState(null)
 
   const [domainFilter, setDomainFilter] = useState('')
+  const [unitFilter, setUnitFilter] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [groupByDomain, setGroupByDomain] = useState(false)
@@ -79,11 +82,27 @@ export default function StudentProfile() {
 
   const filteredObservations = useMemo(() => {
     return domainScopedObservations.filter((obs) => {
+      if (unitFilter && obs.unit_id !== unitFilter) return false
       if (fromDate && obs.observed_on < fromDate) return false
       if (toDate && obs.observed_on > toDate) return false
       return true
     })
-  }, [domainScopedObservations, fromDate, toDate])
+  }, [domainScopedObservations, unitFilter, fromDate, toDate])
+
+  const availableUnits = useMemo(
+    () => (domainFilter ? units.filter((u) => u.domain_id === domainFilter) : units),
+    [units, domainFilter]
+  )
+
+  const currentLevel = useMemo(() => getCurrentLevel(observations), [observations])
+
+  // "Latest" is always the single most recent note across the whole
+  // timeline (not just what's currently filtered), so the highlight stays
+  // meaningful even while narrowing the view down.
+  const latestObs = useMemo(() => {
+    if (observations.length === 0) return null
+    return observations.slice().sort((a, b) => b.observed_on.localeCompare(a.observed_on) || b.created_at.localeCompare(a.created_at))[0]
+  }, [observations])
 
   const groupedByDomain = useMemo(() => {
     if (!groupByDomain) return null
@@ -138,9 +157,20 @@ export default function StudentProfile() {
       <div className="page-header">
         <div className="row">
           <StudentAvatar student={student} size={56} />
-          <h1 style={{ margin: 0 }}>
-            {student.first_name} {student.last_initial}.
-          </h1>
+          <div>
+            <h1 style={{ margin: 0 }}>
+              {student.first_name} {student.last_initial}.
+            </h1>
+            {currentLevel && (
+              <div className="current-level-badge" title={currentLevel.isRecent ? 'Based on the last 30 days' : 'Based on all notes — nothing recent leveled'}>
+                <LevelIcon level={currentLevel.level} size={20} />
+                <span>{LEVEL_MAP[currentLevel.level].label}</span>
+                <span className="muted utility" style={{ fontWeight: 400, fontSize: '0.7rem' }}>
+                  {currentLevel.isRecent ? 'last 30 days' : 'all-time'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
         <button
           className="btn btn-primary no-print"
@@ -153,25 +183,6 @@ export default function StudentProfile() {
         </button>
       </div>
 
-      <div className="row no-print" style={{ flexWrap: 'wrap' }}>
-        <label htmlFor="domain-filter-top" style={{ marginBottom: 0, fontSize: '0.85rem' }}>
-          Filter by domain
-        </label>
-        <select id="domain-filter-top" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} style={{ maxWidth: 220 }}>
-          <option value="">All domains</option>
-          {visibleDomains.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.icon} {d.name}
-            </option>
-          ))}
-        </select>
-        {domainFilter && (
-          <button className="btn btn-ghost" onClick={() => setDomainFilter('')}>
-            Clear
-          </button>
-        )}
-      </div>
-
       <PinnedNotesSection studentId={id} notes={pinnedNotes} onChange={setPinnedNotes} />
 
       <section className="card">
@@ -182,23 +193,50 @@ export default function StudentProfile() {
       <section className="card stack">
         <div className="spread">
           <h2 style={{ margin: 0 }}>Timeline</h2>
-          <label className="row no-print" style={{ fontWeight: 400, fontSize: '0.85rem' }}>
+          <label className="row no-print" style={{ fontWeight: 400, fontSize: '0.8rem' }}>
             <input type="checkbox" checked={groupByDomain} onChange={(e) => setGroupByDomain(e.target.checked)} />
             Group by domain
           </label>
         </div>
-        <div className="row" style={{ flexWrap: 'wrap' }}>
+        <div className="row timeline-filters no-print" style={{ flexWrap: 'wrap' }}>
+          <select
+            value={domainFilter}
+            onChange={(e) => {
+              setDomainFilter(e.target.value)
+              setUnitFilter('')
+            }}
+            aria-label="Filter by domain"
+          >
+            <option value="">All domains</option>
+            {visibleDomains.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.icon} {d.name}
+              </option>
+            ))}
+          </select>
+          {availableUnits.length > 0 && (
+            <select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} aria-label="Filter by unit">
+              <option value="">All units</option>
+              {availableUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          )}
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
-          {(fromDate || toDate) && (
+          {(domainFilter || unitFilter || fromDate || toDate) && (
             <button
-              className="btn btn-ghost"
+              className="obs-table__link"
               onClick={() => {
+                setDomainFilter('')
+                setUnitFilter('')
                 setFromDate('')
                 setToDate('')
               }}
             >
-              Clear dates
+              clear filters
             </button>
           )}
         </div>
@@ -217,6 +255,7 @@ export default function StudentProfile() {
                   observations={group.notes}
                   domainMap={domainMap}
                   unitMap={unitMap}
+                  latestObsId={latestObs?.id}
                   onEdit={(obs) => {
                     setEditingObs(obs)
                     setComposerOpen(true)
@@ -232,6 +271,7 @@ export default function StudentProfile() {
             observations={filteredObservations}
             domainMap={domainMap}
             unitMap={unitMap}
+            latestObsId={latestObs?.id}
             onEdit={(obs) => {
               setEditingObs(obs)
               setComposerOpen(true)
@@ -275,7 +315,7 @@ export default function StudentProfile() {
 
 // Excel-row style: domain, date, level, and note on one compact line so
 // several days are visible at once instead of scrolling through big cards.
-function ObservationsTable({ observations, domainMap, unitMap, onEdit, onToggleFlag, onDelete }) {
+function ObservationsTable({ observations, domainMap, unitMap, latestObsId, onEdit, onToggleFlag, onDelete }) {
   if (observations.length === 0) return null
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -292,14 +332,20 @@ function ObservationsTable({ observations, domainMap, unitMap, onEdit, onToggleF
         <tbody>
           {observations.map((obs) => {
             const unit = obs.unit_id ? unitMap[obs.unit_id] : null
+            const isLatest = obs.id === latestObsId
+            const rowClass = ['obs-row', obs.is_flagged && 'obs-row--flagged', isLatest && 'obs-row--latest'].filter(Boolean).join(' ')
             return (
-              <tr key={obs.id} className={obs.is_flagged ? 'obs-row obs-row--flagged' : 'obs-row'}>
-                <td className="utility">{formatShortDate(obs.observed_on)}</td>
+              <tr key={obs.id} className={rowClass}>
+                <td className="utility">
+                  {isLatest && <span title="Most recent note">✨ </span>}
+                  {formatShortDate(obs.observed_on)}
+                </td>
                 <td>
                   {obs.domainIds.map((did) => domainMap[did]?.icon).filter(Boolean).join(' ') || '—'}
                 </td>
                 <td className="obs-table__level">{obs.level ? LEVEL_MAP[obs.level].emoji : '—'}</td>
                 <td>
+                  {obs.is_flagged && <span title="Flagged for revisit">🚩 </span>}
                   {obs.body}
                   {unit && <span className="muted utility" style={{ marginLeft: 6 }}>· {unit.label}</span>}
                 </td>

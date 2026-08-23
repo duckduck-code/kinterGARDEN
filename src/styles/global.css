@@ -162,6 +162,31 @@ button {
   flex-wrap: wrap;
 }
 
+.class-header {
+  position: relative;
+}
+
+.class-header__butterfly {
+  color: var(--lavender);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.class-header__butterfly--left {
+  transform: rotate(-12deg);
+}
+
+.class-header__butterfly--right {
+  transform: rotate(10deg);
+  order: 1;
+}
+
+@media (max-width: 480px) {
+  .class-header__butterfly {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 /* Buttons                                                                 */
 /* ---------------------------------------------------------------------- */
@@ -463,6 +488,35 @@ select:focus {
   border-left: 3px solid var(--danger);
 }
 
+.obs-row--latest td {
+  background: rgba(155, 93, 229, 0.08);
+}
+
+.obs-row--latest td:first-child {
+  border-left: 3px solid var(--grape);
+}
+
+.current-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px 12px 4px 8px;
+  background: var(--butter);
+  border-radius: var(--radius-round);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.timeline-filters select,
+.timeline-filters input[type='date'] {
+  min-height: 34px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  width: auto;
+}
+
 .obs-table__level {
   font-size: 1.35rem;
   text-align: center;
@@ -492,14 +546,30 @@ select:focus {
 /* Report curation — domain/unit grouped, bulk-select friendly            */
 /* ---------------------------------------------------------------------- */
 
-.curation-domain {
+.curation-student {
   border: 1px solid var(--chrome);
   border-radius: var(--radius-md);
   padding: var(--space-3);
 }
 
-.curation-domain h3 {
+.curation-student__name {
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--lavender);
+}
+
+.curation-domain {
+  margin-bottom: var(--space-3);
+}
+
+.curation-domain:last-child {
+  margin-bottom: 0;
+}
+
+.curation-domain h4 {
   margin: 0 0 var(--space-2);
+  color: var(--grape-deep);
+  font-family: var(--font-display);
 }
 
 .curation-unit {

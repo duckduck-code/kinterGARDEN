@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import * as api from '../lib/api'
 import { QUIET_LIST_WINDOW_DAYS } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
+import { getCurrentLevel } from '../lib/levelStats'
 import StudentAvatar from '../components/StudentAvatar.jsx'
+import Butterfly from '../components/Butterfly.jsx'
 import NoteComposer from '../components/NoteComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
 
@@ -27,6 +29,7 @@ export default function ClassOverview() {
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [searching, setSearching] = useState(false)
+  const [sortBy, setSortBy] = useState('name') // 'name' | 'level'
 
   const [toastNode, showToast] = useToast()
 
@@ -86,6 +89,31 @@ export default function ClassOverview() {
     return ids
   }, [students, yearObservations])
 
+  // "Rolling month" current level per student — never averaged into a grade
+  // (R3.2.2), just a sort key so the class grid can surface who's currently
+  // reading as more/less secure across recent notes, alphabetically by default.
+  const currentLevelByStudent = useMemo(() => {
+    const map = {}
+    for (const s of students) {
+      map[s.id] = getCurrentLevel(yearObservations.filter((o) => o.student_id === s.id))
+    }
+    return map
+  }, [students, yearObservations])
+
+  const sortedStudents = useMemo(() => {
+    const list = students.slice()
+    if (sortBy === 'level') {
+      list.sort((a, b) => {
+        const av = currentLevelByStudent[a.id]?.average ?? -1
+        const bv = currentLevelByStudent[b.id]?.average ?? -1
+        return bv - av || a.first_name.localeCompare(b.first_name)
+      })
+    } else {
+      list.sort((a, b) => a.first_name.localeCompare(b.first_name))
+    }
+    return list
+  }, [students, sortBy, currentLevelByStudent])
+
   async function handleSaveNote(values) {
     await api.createObservation({
       student_id: composerStudent.id,
@@ -139,16 +167,19 @@ export default function ClassOverview() {
 
   return (
     <div className="stack">
-      <div className="page-header">
+      <div className="page-header class-header">
+        <Butterfly gradient size={38} className="class-header__butterfly class-header__butterfly--left" />
         <div>
-          <h1>{schoolYear.label}</h1>
+          <h1>{schoolYear.class_name || schoolYear.label}</h1>
           <p className="muted" style={{ margin: 0 }}>
+            {schoolYear.class_name && `${schoolYear.label} · `}
             {students.length} student{students.length === 1 ? '' : 's'}
           </p>
         </div>
         <Link to="/rollcall" className="btn btn-primary">
           Start roll call
         </Link>
+        <Butterfly gradient size={26} className="class-header__butterfly class-header__butterfly--right" />
       </div>
 
       <form onSubmit={runSearch} className="row">
@@ -189,6 +220,18 @@ export default function ClassOverview() {
 
       {!searchResults && (
         <>
+          {students.length > 0 && (
+            <div className="row no-print" style={{ justifyContent: 'flex-end' }}>
+              <label htmlFor="sort-by" style={{ marginBottom: 0, fontSize: '0.85rem' }}>
+                Sort by
+              </label>
+              <select id="sort-by" value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ maxWidth: 170 }}>
+                <option value="name">Name (A–Z)</option>
+                <option value="level">Current level</option>
+              </select>
+            </div>
+          )}
+
           {students.length === 0 ? (
             <div className="empty-state">
               <p>No students yet.</p>
@@ -198,7 +241,7 @@ export default function ClassOverview() {
             </div>
           ) : (
             <div className="class-grid">
-              {students.map((student) => (
+              {sortedStudents.map((student) => (
                 <div key={student.id} className="student-card-wrap">
                   <Link to={`/students/${student.id}`} className="student-card">
                     {quietStudentIds.has(student.id) && (

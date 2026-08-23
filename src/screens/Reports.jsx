@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as api from '../lib/api'
 import { LEVELS, LEVEL_MAP, TERMS } from '../lib/constants'
 import { formatShortDate, getTermDateRange } from '../lib/format'
+import { getCurrentLevel } from '../lib/levelStats'
 import GrowthStrip from '../components/GrowthStrip.jsx'
 import '../styles/print.css'
 
@@ -27,6 +28,7 @@ export default function Reports() {
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   const [domainFilter, setDomainFilter] = useState('')
+  const [unitFilter, setUnitFilter] = useState('')
   const [termFilter, setTermFilter] = useState('')
 
   const [yearObservations, setYearObservations] = useState(null)
@@ -142,43 +144,51 @@ export default function Reports() {
 
   const termRange = useMemo(() => (termFilter ? getTermDateRange(schoolYear, termFilter) : null), [schoolYear, termFilter])
 
-  // The curated view: every note from every included student, filtered by
-  // domain/term, organized as Domain -> Unit -> notes (each tagged with its
-  // student) so bulk actions apply across the whole class at once.
-  const curationGroups = useMemo(() => {
+  const unitFilterOptions = useMemo(
+    () => (domainFilter ? units.filter((u) => u.domain_id === domainFilter) : units),
+    [units, domainFilter]
+  )
+
+  // Curation mirrors the PDF's own structure — one section per student, each
+  // organized Domain -> Unit -> notes — so what you're checking/unchecking
+  // here maps directly to what you'll see on the page.
+  const perStudentCuration = useMemo(() => {
     const domainsToShow = domainFilter ? domains.filter((d) => d.id === domainFilter) : domains
-    const groups = []
-    for (const domain of domainsToShow) {
-      const unitBuckets = {}
-      const generalNotes = []
-      for (const student of selectedStudents) {
-        for (const obs of obsByStudent[student.id] ?? []) {
-          if (!obs.domainIds.includes(domain.id)) continue
-          if (termRange && (obs.observed_on < termRange[0] || obs.observed_on > termRange[1])) continue
-          const entry = { ...obs, student }
-          if (obs.unit_id) {
-            unitBuckets[obs.unit_id] = unitBuckets[obs.unit_id] ?? []
-            unitBuckets[obs.unit_id].push(entry)
-          } else {
-            generalNotes.push(entry)
+    return selectedStudents
+      .map((student) => {
+        const groups = []
+        for (const domain of domainsToShow) {
+          const unitBuckets = {}
+          const generalNotes = []
+          for (const obs of obsByStudent[student.id] ?? []) {
+            if (!obs.domainIds.includes(domain.id)) continue
+            if (unitFilter && obs.unit_id !== unitFilter) continue
+            if (termRange && (obs.observed_on < termRange[0] || obs.observed_on > termRange[1])) continue
+            const entry = { ...obs, student }
+            if (obs.unit_id) {
+              unitBuckets[obs.unit_id] = unitBuckets[obs.unit_id] ?? []
+              unitBuckets[obs.unit_id].push(entry)
+            } else {
+              generalNotes.push(entry)
+            }
+          }
+          const unitGroups = Object.entries(unitBuckets)
+            .map(([unitId, notes]) => ({ unitId, label: unitMap[unitId]?.label ?? 'Unit', notes }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+          generalNotes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
+          for (const g of unitGroups) g.notes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
+          if (unitGroups.length > 0 || generalNotes.length > 0) {
+            groups.push({ domain, unitGroups, generalNotes })
           }
         }
-      }
-      const unitGroups = Object.entries(unitBuckets)
-        .map(([unitId, notes]) => ({ unitId, label: unitMap[unitId]?.label ?? 'Unit', notes }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-      generalNotes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
-      for (const g of unitGroups) g.notes.sort((a, b) => a.observed_on.localeCompare(b.observed_on))
-      if (unitGroups.length > 0 || generalNotes.length > 0) {
-        groups.push({ domain, unitGroups, generalNotes })
-      }
-    }
-    return groups
-  }, [domains, domainFilter, termRange, selectedStudents, obsByStudent, unitMap])
+        return { student, groups }
+      })
+      .filter((sc) => sc.groups.length > 0)
+  }, [selectedStudents, domains, domainFilter, unitFilter, termRange, obsByStudent, unitMap])
 
   const allVisibleEntries = useMemo(
-    () => curationGroups.flatMap((g) => [...g.unitGroups.flatMap((u) => u.notes), ...g.generalNotes]),
-    [curationGroups]
+    () => perStudentCuration.flatMap((sc) => sc.groups.flatMap((g) => [...g.unitGroups.flatMap((u) => u.notes), ...g.generalNotes])),
+    [perStudentCuration]
   )
 
   if (loading) return <p className="muted">Loading…</p>
@@ -256,11 +266,30 @@ export default function Reports() {
             <div className="row" style={{ flexWrap: 'wrap' }}>
               <div className="field" style={{ marginBottom: 0 }}>
                 <label htmlFor="domain-filter">Domain</label>
-                <select id="domain-filter" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} style={{ maxWidth: 220 }}>
+                <select
+                  id="domain-filter"
+                  value={domainFilter}
+                  onChange={(e) => {
+                    setDomainFilter(e.target.value)
+                    setUnitFilter('')
+                  }}
+                  style={{ maxWidth: 220 }}
+                >
                   <option value="">All domains</option>
                   {domains.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.icon} {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="unit-filter">Unit</label>
+                <select id="unit-filter" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} style={{ maxWidth: 220 }}>
+                  <option value="">All units</option>
+                  {unitFilterOptions.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.label}
                     </option>
                   ))}
                 </select>
@@ -324,18 +353,23 @@ export default function Reports() {
               should read as a curated summary, not the full working history.
             </p>
 
-            {curationGroups.length === 0 && <p className="muted">No notes match these filters.</p>}
+            {perStudentCuration.length === 0 && <p className="muted">No notes match these filters.</p>}
 
             <div className="stack">
-              {curationGroups.map(({ domain, unitGroups, generalNotes }) => (
-                <div key={domain.id} className="curation-domain">
-                  <h3>{domain.icon} {domain.name}</h3>
-                  {unitGroups.map((u) => (
-                    <CurationUnit key={u.unitId} label={u.label} entries={u.notes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
+              {perStudentCuration.map(({ student, groups }) => (
+                <div key={student.id} className="curation-student">
+                  <h3 className="curation-student__name">{student.first_name} {student.last_initial}.</h3>
+                  {groups.map(({ domain, unitGroups, generalNotes }) => (
+                    <div key={domain.id} className="curation-domain">
+                      <h4>{domain.icon} {domain.name}</h4>
+                      {unitGroups.map((u) => (
+                        <CurationUnit key={u.unitId} label={u.label} entries={u.notes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
+                      ))}
+                      {generalNotes.length > 0 && (
+                        <CurationUnit label="General" entries={generalNotes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
+                      )}
+                    </div>
                   ))}
-                  {generalNotes.length > 0 && (
-                    <CurationUnit label="General" entries={generalNotes} onToggle={toggleObs} onSetGroup={setNotesIncluded} selectedObsByStudent={selectedObsByStudent} />
-                  )}
                 </div>
               ))}
             </div>
@@ -423,9 +457,14 @@ function ReportPage({ student, schoolYear, domains, unitMap, observations, summa
     }
   }
 
+  const currentLevel = getCurrentLevel(observations)
+
   return (
     <div className="report-page report-section">
-      <h1 className="report-header">{student.first_name} {student.last_initial}.</h1>
+      <div className="report-header">
+        <h1 style={{ margin: 0 }}>{student.first_name} {student.last_initial}.</h1>
+        {currentLevel && <span className="report-current-level">Current level: {LEVEL_MAP[currentLevel.level].label}</span>}
+      </div>
       <hr className="report-rule" />
 
       {TERMS.filter((t) => includeSummaryTerms[t.value] && summaries[t.value]).map((t) => (
@@ -482,7 +521,7 @@ function ReportNotesTable({ notes }) {
           <tr key={obs.id} className={obs.is_flagged ? 'report-row--flagged' : undefined}>
             <td className="obs-date">{formatShortDate(obs.observed_on)}</td>
             <td>{obs.level ? LEVEL_MAP[obs.level].label : '—'}</td>
-            <td>{obs.body}</td>
+            <td>{obs.is_flagged && '★ '}{obs.body}</td>
           </tr>
         ))}
       </tbody>
@@ -490,24 +529,42 @@ function ReportNotesTable({ notes }) {
   )
 }
 
-// Class-wide view: for each domain, broken down by unit/lesson, how many
-// students are at each level right now. Screen-only insight, not a graded
-// ranking — just where to focus the next lesson.
+function levelBuckets(obsMap) {
+  return {
+    byLevel: LEVELS.reduce((acc, level) => {
+      acc[level.value] = Object.values(obsMap).filter((o) => o.level === level.value)
+      return acc
+    }, {}),
+    total: Object.keys(obsMap).length,
+  }
+}
+
+// Class-wide view: each domain's overall average up top, with the unit/lesson
+// breakdown tucked behind a toggle for when you want to dig in. Screen-only
+// insight, not a graded ranking — just where to focus the next lesson.
 function ClassProgressView({ loading, observations, domains, unitMap, students }) {
   const studentMap = useMemo(() => Object.fromEntries(students.map((s) => [s.id, s])), [students])
+  const [expanded, setExpanded] = useState(new Set())
 
   const byDomain = useMemo(() => {
     return domains.map((domain) => {
       const domainObs = observations.filter((o) => o.domainIds.includes(domain.id) && o.level)
-      // Latest level per student, per unit within this domain.
+
+      // Domain-wide rollup: latest leveled note per student, across every
+      // unit (and general notes) in this domain.
+      const domainByStudent = {}
+      for (const obs of domainObs) {
+        const existing = domainByStudent[obs.student_id]
+        if (!existing || obs.observed_on > existing.observed_on) domainByStudent[obs.student_id] = obs
+      }
+
+      // Per-unit breakdown, for the expandable detail view.
       const unitBuckets = {}
       for (const obs of domainObs) {
         const unitKey = obs.unit_id || UNGROUPED
         unitBuckets[unitKey] = unitBuckets[unitKey] ?? {}
         const existing = unitBuckets[unitKey][obs.student_id]
-        if (!existing || obs.observed_on > existing.observed_on) {
-          unitBuckets[unitKey][obs.student_id] = obs
-        }
+        if (!existing || obs.observed_on > existing.observed_on) unitBuckets[unitKey][obs.student_id] = obs
       }
       const unitList = Object.entries(unitBuckets)
         .sort(([a], [b]) => {
@@ -515,64 +572,83 @@ function ClassProgressView({ loading, observations, domains, unitMap, students }
           if (b === UNGROUPED) return -1
           return (unitMap[a]?.label ?? '').localeCompare(unitMap[b]?.label ?? '')
         })
-        .map(([key, byStudent]) => ({
-          unit: key === UNGROUPED ? 'General' : unitMap[key]?.label ?? 'Unit',
-          byLevel: LEVELS.reduce((acc, level) => {
-            acc[level.value] = Object.values(byStudent).filter((o) => o.level === level.value)
-            return acc
-          }, {}),
-          total: Object.keys(byStudent).length,
-        }))
-      return { domain, unitList }
-    }).filter((d) => d.unitList.length > 0)
+        .map(([key, byStudent]) => ({ unit: key === UNGROUPED ? 'General' : unitMap[key]?.label ?? 'Unit', ...levelBuckets(byStudent) }))
+
+      return { domain, overall: levelBuckets(domainByStudent), unitList }
+    }).filter((d) => d.overall.total > 0)
   }, [domains, observations, unitMap])
 
   if (loading) return <p className="muted">Loading class progress…</p>
   if (byDomain.length === 0) return <p className="muted">No leveled observations yet.</p>
 
+  function toggleExpanded(domainId) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(domainId) ? next.delete(domainId) : next.add(domainId)
+      return next
+    })
+  }
+
   return (
     <div className="stack no-print">
       <p className="field-hint" style={{ margin: 0 }}>
-        Most recent level per student, grouped by domain and unit/lesson — a quick read on where the class stands,
-        not a score. ★ marks the most common level for that unit.
+        Most recent level per student — domain average up top, unit/lesson breakdown behind "See by unit." Not a
+        score. ★ marks the most common level.
       </p>
-      {byDomain.map(({ domain, unitList }) => (
+      {byDomain.map(({ domain, overall, unitList }) => (
         <section key={domain.id} className="card stack progress-domain">
-          <h2 className="progress-domain__title">{domain.icon} {domain.name}</h2>
-          {unitList.map((u, i) => {
-            const maxCount = Math.max(...LEVELS.map((level) => u.byLevel[level.value].length))
-            return (
-              <div key={`${u.unit}-${i}`} className="progress-unit">
-                <div className="progress-unit__label">{u.unit}</div>
-                <div className="progress-unit__bars">
-                  {LEVELS.map((level) => {
-                    const list = u.byLevel[level.value]
-                    const pct = u.total > 0 ? Math.round((list.length / u.total) * 100) : 0
-                    const isMost = maxCount > 0 && list.length === maxCount
-                    return (
-                      <div key={level.value} className="progress-bar-row">
-                        <span className="progress-bar-row__level">
-                          {isMost && list.length > 0 && '★ '}
-                          {LEVEL_MAP[level.value].emoji} {level.label}
-                        </span>
-                        <div className="progress-bar-row__track">
-                          <div className="progress-bar-row__fill" style={{ width: `${pct}%`, background: isMost ? 'var(--grape)' : 'var(--chrome)' }} />
-                        </div>
-                        <span className="progress-bar-row__count">{list.length}</span>
-                        {list.length > 0 && (
-                          <span className="progress-bar-row__names">
-                            {list.map((obs) => `${studentMap[obs.student_id]?.first_name} ${studentMap[obs.student_id]?.last_initial}.`).join(', ')}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
+          <div className="spread">
+            <h2 className="progress-domain__title" style={{ margin: 0 }}>{domain.icon} {domain.name}</h2>
+            {unitList.length > 1 && (
+              <button className="obs-table__link" onClick={() => toggleExpanded(domain.id)}>
+                {expanded.has(domain.id) ? 'hide unit breakdown' : 'see by unit'}
+              </button>
+            )}
+          </div>
+          <LevelBars byLevel={overall.byLevel} total={overall.total} studentMap={studentMap} />
+
+          {expanded.has(domain.id) && (
+            <div className="stack" style={{ marginTop: 'var(--space-2)' }}>
+              {unitList.map((u, i) => (
+                <div key={`${u.unit}-${i}`} className="progress-unit">
+                  <div className="progress-unit__label">{u.unit}</div>
+                  <LevelBars byLevel={u.byLevel} total={u.total} studentMap={studentMap} />
                 </div>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          )}
         </section>
       ))}
+    </div>
+  )
+}
+
+function LevelBars({ byLevel, total, studentMap }) {
+  const maxCount = Math.max(...LEVELS.map((level) => byLevel[level.value].length))
+  return (
+    <div className="progress-unit__bars">
+      {LEVELS.map((level) => {
+        const list = byLevel[level.value]
+        const pct = total > 0 ? Math.round((list.length / total) * 100) : 0
+        const isMost = maxCount > 0 && list.length === maxCount
+        return (
+          <div key={level.value} className="progress-bar-row">
+            <span className="progress-bar-row__level">
+              {isMost && list.length > 0 && '★ '}
+              {LEVEL_MAP[level.value].emoji} {level.label}
+            </span>
+            <div className="progress-bar-row__track">
+              <div className="progress-bar-row__fill" style={{ width: `${pct}%`, background: isMost ? 'var(--grape)' : 'var(--chrome)' }} />
+            </div>
+            <span className="progress-bar-row__count">{list.length}</span>
+            {list.length > 0 && (
+              <span className="progress-bar-row__names">
+                {list.map((obs) => `${studentMap[obs.student_id]?.first_name} ${studentMap[obs.student_id]?.last_initial}.`).join(', ')}
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

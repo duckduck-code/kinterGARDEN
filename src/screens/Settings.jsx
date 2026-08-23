@@ -89,9 +89,9 @@ export default function Settings() {
 
       {schoolYear && (
         <>
-          <StudentsSection schoolYear={schoolYear} students={students} archivedStudents={archivedStudents} onChanged={loadAll} />
-          <DomainsSection domains={domains} onChanged={loadAll} />
           <UnitsSection domains={domains} units={units} onChanged={loadAll} />
+          <DomainsSection domains={domains} onChanged={loadAll} />
+          <StudentsSection schoolYear={schoolYear} students={students} archivedStudents={archivedStudents} onChanged={loadAll} />
 
           <section className="card stack">
             <h2>Data export</h2>
@@ -117,6 +117,10 @@ function SchoolYearSection({ schoolYear, schoolYears, isAdmin, onChanged }) {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [className, setClassName] = useState(schoolYear?.class_name ?? '')
+  const [savingClassName, setSavingClassName] = useState(false)
+
+  useEffect(() => setClassName(schoolYear?.class_name ?? ''), [schoolYear])
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -138,6 +142,16 @@ function SchoolYearSection({ schoolYear, schoolYears, isAdmin, onChanged }) {
     onChanged()
   }
 
+  async function handleSaveClassName() {
+    setSavingClassName(true)
+    try {
+      await api.updateSchoolYear(schoolYear.id, { class_name: className.trim() || null })
+      onChanged()
+    } finally {
+      setSavingClassName(false)
+    }
+  }
+
   return (
     <section className="card stack">
       <h2>School year</h2>
@@ -147,6 +161,33 @@ function SchoolYearSection({ schoolYear, schoolYears, isAdmin, onChanged }) {
         </p>
       ) : (
         <p className="muted">No current school year set.</p>
+      )}
+
+      {schoolYear && (
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label htmlFor="class-name">Class name</label>
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            Shown throughout the app instead of the bare year, e.g. "Ms. Madisen's Class."
+          </p>
+          {isAdmin ? (
+            <div className="row">
+              <input
+                id="class-name"
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+                placeholder="Ms. Madisen's Class"
+                style={{ flex: 1 }}
+              />
+              {className !== (schoolYear.class_name ?? '') && (
+                <button className="btn btn-secondary" onClick={handleSaveClassName} disabled={savingClassName}>
+                  {savingClassName ? 'Saving…' : 'Save'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p style={{ margin: 0 }}>{schoolYear.class_name || <span className="muted">Not set</span>}</p>
+          )}
+        </div>
       )}
 
       {schoolYears.length > 1 && (

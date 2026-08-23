@@ -12,6 +12,7 @@ create extension if not exists "pgcrypto";
 create table if not exists school_years (
   id          uuid primary key default gen_random_uuid(),
   label       text not null,                    -- "2026–2027"
+  class_name  text,                             -- "Ms. Madisen's Class" — shown instead of the year where it fits
   start_date  date not null,
   end_date    date not null,
   is_current  boolean not null default false,

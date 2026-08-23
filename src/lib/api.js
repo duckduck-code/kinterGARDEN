@@ -36,6 +36,13 @@ export async function createSchoolYear({ label, start_date, end_date }) {
   return data
 }
 
+export async function updateSchoolYear(id, patch) {
+  if (isPreviewMode()) return mock.updateSchoolYear(id, patch)
+  const { data, error } = await supabase.from('school_years').update(patch).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
 export async function setCurrentSchoolYear(id) {
   if (isPreviewMode()) return mock.setCurrentSchoolYear(id)
   const all = await listSchoolYears()

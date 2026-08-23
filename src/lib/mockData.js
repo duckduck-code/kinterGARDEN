@@ -32,9 +32,10 @@ function uid() {
 
 const SCHOOL_YEAR_ID = 'preview-year'
 
-const schoolYear = {
+let schoolYear = {
   id: SCHOOL_YEAR_ID,
   label: 'Kindergarten 2026–2027',
+  class_name: "Ms. Madisen's Class",
   start_date: '2026-08-15',
   end_date: '2027-06-15',
   is_current: true,
@@ -157,6 +158,13 @@ export const mock = {
   },
   async setCurrentSchoolYear() {
     return schoolYear
+  },
+  async updateSchoolYear(id, patch) {
+    if (schoolYear.id === id) {
+      schoolYear = { ...schoolYear, ...patch }
+      return schoolYear
+    }
+    return null
   },
 
   async listStudents(_schoolYearId, { includeArchived = false } = {}) {

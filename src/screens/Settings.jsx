@@ -166,9 +166,6 @@ function SchoolYearSection({ schoolYear, schoolYears, isAdmin, onChanged }) {
       {schoolYear && (
         <div className="field" style={{ marginBottom: 0 }}>
           <label htmlFor="class-name">Class name</label>
-          <p className="field-hint" style={{ marginTop: 0 }}>
-            Shown throughout the app instead of the bare year, e.g. "Ms. Madisen's Class."
-          </p>
           {isAdmin ? (
             <div className="row">
               <input

@@ -318,6 +318,60 @@ select:focus {
   padding: var(--space-4);
 }
 
+.week-digest {
+  background: var(--white);
+  border: 2px solid var(--lavender);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.week-digest--quiet {
+  gap: var(--space-3);
+}
+
+.week-digest__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--grape-deep);
+  flex-shrink: 0;
+}
+
+.week-digest__stats {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.week-digest__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+}
+
+.week-digest__value {
+  font-family: var(--font-utility);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.week-digest__label {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.week-digest__stat--celebrate .week-digest__value {
+  color: var(--grape-deep);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Class grid + student card                                              */
 /* ---------------------------------------------------------------------- */
@@ -798,6 +852,30 @@ select:focus {
   font-weight: 700;
   z-index: 60;
   box-shadow: var(--shadow-pop);
+}
+
+.toast--celebrate {
+  background: linear-gradient(135deg, var(--grape-deep), var(--grape));
+  padding: var(--space-3) var(--space-6);
+  font-size: 1.05em;
+}
+
+.toast--undo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.toast__undo-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-round);
+  padding: 4px 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* ---------------------------------------------------------------------- */

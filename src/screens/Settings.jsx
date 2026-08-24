@@ -6,6 +6,7 @@ import { pickRandomAvatar } from '../lib/avatarPicker'
 import { toCsv, downloadCsv } from '../lib/csv'
 import StudentAvatar from '../components/StudentAvatar.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { useUndoToast } from '../components/UndoToast.jsx'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
@@ -17,6 +18,19 @@ export default function Settings() {
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
   const [toastNode, showToast] = useToast()
+  const [undoToastNode, showUndoable] = useUndoToast()
+
+  function handleArchiveWithUndo(student) {
+    setStudents((list) => list.filter((s) => s.id !== student.id))
+    setArchivedStudents((list) => [...list, { ...student, status: 'archived' }])
+    showUndoable(`${student.first_name} archived`, {
+      onUndo: () => {
+        setStudents((list) => [...list, student].sort((a, b) => a.sort_order - b.sort_order))
+        setArchivedStudents((list) => list.filter((s) => s.id !== student.id))
+      },
+      onCommit: () => api.archiveStudent(student.id),
+    })
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -91,7 +105,13 @@ export default function Settings() {
         <>
           <UnitsSection domains={domains} units={units} onChanged={loadAll} />
           <DomainsSection domains={domains} onChanged={loadAll} />
-          <StudentsSection schoolYear={schoolYear} students={students} archivedStudents={archivedStudents} onChanged={loadAll} />
+          <StudentsSection
+            schoolYear={schoolYear}
+            students={students}
+            archivedStudents={archivedStudents}
+            onChanged={loadAll}
+            onArchive={handleArchiveWithUndo}
+          />
 
           <section className="card stack">
             <h2>Data export</h2>
@@ -107,6 +127,7 @@ export default function Settings() {
       )}
 
       {toastNode}
+      {undoToastNode}
     </div>
   )
 }
@@ -242,7 +263,7 @@ function SchoolYearSection({ schoolYear, schoolYears, isAdmin, onChanged }) {
   )
 }
 
-function StudentsSection({ schoolYear, students, archivedStudents, onChanged }) {
+function StudentsSection({ schoolYear, students, archivedStudents, onChanged, onArchive }) {
   const [showForm, setShowForm] = useState(false)
   return (
     <section className="card stack">
@@ -266,7 +287,7 @@ function StudentsSection({ schoolYear, students, archivedStudents, onChanged }) 
 
       <div className="stack">
         {students.map((s) => (
-          <StudentRow key={s.id} student={s} existingEmojis={students.map((s) => s.avatar_emoji)} onChanged={onChanged} />
+          <StudentRow key={s.id} student={s} existingEmojis={students.map((s) => s.avatar_emoji)} onChanged={onChanged} onArchive={onArchive} />
         ))}
       </div>
 
@@ -374,7 +395,7 @@ function StudentForm({ schoolYear, existing, existingEmojis = [], onSaved, onCan
   )
 }
 
-function StudentRow({ student, existingEmojis = [], onChanged }) {
+function StudentRow({ student, existingEmojis = [], onChanged, onArchive }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -392,12 +413,6 @@ function StudentRow({ student, existingEmojis = [], onChanged }) {
     )
   }
 
-  async function handleArchive() {
-    if (!window.confirm(`Archive ${student.first_name}? They'll be hidden from the class grid but data is kept.`)) return
-    await api.archiveStudent(student.id)
-    onChanged()
-  }
-
   return (
     <div className="spread">
       <div className="row">
@@ -408,7 +423,7 @@ function StudentRow({ student, existingEmojis = [], onChanged }) {
         <button className="btn btn-ghost" onClick={() => setEditing(true)}>
           Edit
         </button>
-        <button className="btn btn-ghost" onClick={handleArchive}>
+        <button className="btn btn-ghost" onClick={() => onArchive(student)}>
           Archive
         </button>
       </div>

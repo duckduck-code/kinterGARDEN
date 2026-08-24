@@ -12,26 +12,42 @@ const BURST_PARTICLES = [
   { dx: 80, dy: -2, size: 10, color: 'var(--butter)', delay: 120 },
 ]
 
+// A bigger burst for a first-time-Secure celebration — still one-shot on
+// event, never ambient, just more of it since the moment earns it.
+const CELEBRATE_PARTICLES = [
+  { dx: -95, dy: -22, size: 16, color: 'var(--butter)', delay: 0 },
+  { dx: -60, dy: -48, size: 12, color: 'var(--babyblue)', delay: 40 },
+  { dx: -22, dy: -58, size: 18, color: 'var(--bubblegum)', delay: 20 },
+  { dx: 15, dy: -54, size: 14, color: 'var(--grape)', delay: 90 },
+  { dx: 52, dy: -46, size: 16, color: 'var(--butter)', delay: 60 },
+  { dx: 88, dy: -24, size: 12, color: 'var(--bubblegum)', delay: 120 },
+  { dx: 100, dy: 2, size: 14, color: 'var(--grape)', delay: 150 },
+]
+
 export function useToast() {
   const [message, setMessage] = useState(null)
   const [burstKey, setBurstKey] = useState(0)
+  const [celebrate, setCelebrate] = useState(false)
   const timeoutRef = useRef(null)
 
-  function showToast(text) {
+  function showToast(text, { celebrate: isCelebration = false } = {}) {
     setMessage(text)
+    setCelebrate(isCelebration)
     setBurstKey((k) => k + 1)
     clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(() => setMessage(null), 1800)
+    timeoutRef.current = setTimeout(() => setMessage(null), isCelebration ? 3200 : 1800)
   }
 
   useEffect(() => () => clearTimeout(timeoutRef.current), [])
 
+  const particles = celebrate ? CELEBRATE_PARTICLES : BURST_PARTICLES
+
   const node = message ? (
     <Fragment>
-      <div className="toast" role="status">
+      <div className={celebrate ? 'toast toast--celebrate' : 'toast'} role="status">
         {message}
       </div>
-      {BURST_PARTICLES.map((p, i) => (
+      {particles.map((p, i) => (
         <span
           key={`${burstKey}-${i}`}
           className="sparkle-burst"

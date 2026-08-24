@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import * as api from '../lib/api'
 import { TERMS, LEVEL_MAP, PINNED_CATEGORIES, PINNED_CATEGORY_MAP } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
-import { getCurrentLevel } from '../lib/levelStats'
+import { getCurrentLevel, getFirstTimeSecureDomains } from '../lib/levelStats'
 import StudentAvatar from '../components/StudentAvatar.jsx'
 import { LevelIcon } from '../components/Butterfly.jsx'
 import GrowthStrip from '../components/GrowthStrip.jsx'
 import NoteComposer from '../components/NoteComposer.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { useUndoToast } from '../components/UndoToast.jsx'
 
 export default function StudentProfile() {
   const { id } = useParams()
@@ -34,6 +35,7 @@ export default function StudentProfile() {
   const [editingObs, setEditingObs] = useState(null)
 
   const [toastNode, showToast] = useToast()
+  const [undoToastNode, showUndoable] = useUndoToast()
 
   async function loadAll() {
     setLoading(true)
@@ -116,22 +118,36 @@ export default function StudentProfile() {
   }, [groupByDomain, visibleDomains, filteredObservations])
 
   async function handleSaveNote(values) {
+    const firstTimeDomainIds = getFirstTimeSecureDomains(observations, {
+      ...values,
+      id: editingObs?.id,
+    })
+    const celebration =
+      firstTimeDomainIds.length > 0
+        ? `🦋 First time Secure in ${firstTimeDomainIds
+            .map((did) => domainMap[did]?.name)
+            .filter(Boolean)
+            .join(', ')}!`
+        : null
+
     if (editingObs) {
       await api.updateObservation(editingObs.id, values)
-      showToast('Note updated')
+      showToast(celebration ?? 'Note updated', celebration ? { celebrate: true } : undefined)
     } else {
       await api.createObservation({ student_id: id, school_year_id: schoolYear.id, ...values })
-      showToast('Note saved')
+      showToast(celebration ?? 'Note saved', celebration ? { celebrate: true } : undefined)
     }
     setComposerOpen(false)
     setEditingObs(null)
     loadAll()
   }
 
-  async function handleDelete(obs) {
-    if (!window.confirm('Delete this note? This cannot be undone.')) return
-    await api.deleteObservation(obs.id)
+  function handleDelete(obs) {
     setObservations((list) => list.filter((o) => o.id !== obs.id))
+    showUndoable('Note deleted', {
+      onUndo: () => setObservations((list) => [...list, obs]),
+      onCommit: () => api.deleteObservation(obs.id),
+    })
   }
 
   async function handleToggleFlag(obs) {
@@ -309,6 +325,7 @@ export default function StudentProfile() {
       )}
 
       {toastNode}
+      {undoToastNode}
     </div>
   )
 }

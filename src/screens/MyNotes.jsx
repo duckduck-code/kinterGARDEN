@@ -11,6 +11,7 @@ export default function MyNotes() {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
   const [category, setCategory] = useState('idea')
   const [body, setBody] = useState('')
@@ -67,7 +68,9 @@ export default function MyNotes() {
     return <p className="muted">No current school year set up yet. Add one in Settings.</p>
   }
 
-  const visibleNotes = categoryFilter ? notes.filter((n) => n.category === categoryFilter) : notes
+  const visibleNotes = notes
+    .filter((n) => !categoryFilter || n.category === categoryFilter)
+    .filter((n) => !searchTerm.trim() || n.body.toLowerCase().includes(searchTerm.trim().toLowerCase()))
 
   return (
     <div className="stack">
@@ -104,6 +107,17 @@ export default function MyNotes() {
         </form>
       </section>
 
+      <div className="field no-print" style={{ maxWidth: 320, marginBottom: 0 }}>
+        <label htmlFor="note-search">Search</label>
+        <input
+          id="note-search"
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search your notes…"
+        />
+      </div>
+
       <div className="tag-row no-print">
         <button
           type="button"
@@ -126,7 +140,7 @@ export default function MyNotes() {
       </div>
 
       {visibleNotes.length === 0 ? (
-        <p className="muted">Nothing here yet.</p>
+        <p className="muted">{notes.length === 0 ? 'Nothing here yet.' : 'No notes match.'}</p>
       ) : (
         <div className="stack">
           {visibleNotes.map((note) => {

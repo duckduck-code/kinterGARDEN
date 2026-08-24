@@ -34,3 +34,38 @@ export function getCurrentLevel(observations) {
     isRecent: recent.length > 0,
   }
 }
+
+// Which of the new note's domains are hitting Secure for the very first
+// time for this student — checked against every other leveled note on
+// record, not just chronologically-prior ones, so editing an older note
+// still reads correctly. Worth celebrating; returns [] most of the time.
+export function getFirstTimeSecureDomains(existingObservations, newObservation) {
+  if (newObservation.level !== 'secure') return []
+  const newDomainIds = newObservation.domainIds ?? []
+  if (newDomainIds.length === 0) return []
+
+  const priorSecureDomains = new Set()
+  for (const o of existingObservations) {
+    if (o.id && newObservation.id && o.id === newObservation.id) continue
+    if (o.level !== 'secure') continue
+    for (const d of o.domainIds ?? []) priorSecureDomains.add(d)
+  }
+
+  return newDomainIds.filter((d) => !priorSecureDomains.has(d))
+}
+
+// For every (student, domain) pair, the earliest date it was ever observed
+// as Secure. Lets a digest ask "how many first-time Secures landed in this
+// date range" without replaying the celebration logic note-by-note.
+export function getFirstSecureDatesByStudentDomain(observations) {
+  const first = new Map()
+  for (const o of observations) {
+    if (o.level !== 'secure') continue
+    for (const d of o.domainIds ?? []) {
+      const key = `${o.student_id}:${d}`
+      const existing = first.get(key)
+      if (!existing || o.observed_on < existing) first.set(key, o.observed_on)
+    }
+  }
+  return first
+}

@@ -324,13 +324,15 @@ select:focus {
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.week-digest--quiet {
-  gap: var(--space-3);
+.week-digest__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .week-digest__title {
@@ -368,8 +370,19 @@ select:focus {
   letter-spacing: 0.03em;
 }
 
-.week-digest__stat--celebrate .week-digest__value {
-  color: var(--grape-deep);
+.week-digest__units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.week-digest__unit-chip {
+  background: var(--cloud);
+  border-radius: var(--radius-round);
+  padding: 4px var(--space-3);
+  font-size: 0.8rem;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------------- */

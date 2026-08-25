@@ -4,7 +4,7 @@ import * as api from '../lib/api'
 import { QUIET_LIST_WINDOW_DAYS } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
 import { LEVELS } from '../lib/constants'
-import { getCurrentLevel, getFirstTimeSecureDomains, getFirstSecureDatesByStudentDomain } from '../lib/levelStats'
+import { getCurrentLevel, getFirstTimeSecureDomains } from '../lib/levelStats'
 import StudentAvatar from '../components/StudentAvatar.jsx'
 import { LevelIcon } from '../components/Butterfly.jsx'
 import Butterfly from '../components/Butterfly.jsx'
@@ -137,25 +137,30 @@ export default function ClassOverview() {
     const weekObs = yearObservations.filter((o) => o.observed_on >= since)
     const studentIds = new Set(weekObs.map((o) => o.student_id))
 
-    const domainCounts = {}
-    for (const o of weekObs) {
-      for (const d of o.domainIds ?? []) domainCounts[d] = (domainCounts[d] ?? 0) + 1
+    // "Currently on" per domain — the most recently noted unit, over the
+    // whole year rather than just this week, so it stays useful through a
+    // quiet week instead of just going blank.
+    const latestUnitByDomain = []
+    for (const domain of domains) {
+      const domainUnitIds = new Set(units.filter((u) => u.domain_id === domain.id).map((u) => u.id))
+      let latest = null
+      for (const o of yearObservations) {
+        if (!o.unit_id || !domainUnitIds.has(o.unit_id)) continue
+        if (!latest || o.observed_on > latest.observed_on) latest = o
+      }
+      if (latest) {
+        const unit = units.find((u) => u.id === latest.unit_id)
+        if (unit) latestUnitByDomain.push({ domain, unit })
+      }
     }
-    const busiestDomainId = Object.keys(domainCounts).sort((a, b) => domainCounts[b] - domainCounts[a])[0] ?? null
-    const busiestDomain = busiestDomainId ? domains.find((d) => d.id === busiestDomainId) : null
-
-    const firstSecureDates = getFirstSecureDatesByStudentDomain(yearObservations)
-    const firstTimeSecureCount = [...firstSecureDates.values()].filter((date) => date >= since).length
 
     return {
       noteCount: weekObs.length,
       studentCount: studentIds.size,
       totalStudents: students.length,
-      busiestDomain,
-      busiestDomainCount: busiestDomainId ? domainCounts[busiestDomainId] : 0,
-      firstTimeSecureCount,
+      latestUnitByDomain,
     }
-  }, [yearObservations, domains, students])
+  }, [yearObservations, domains, units, students])
 
   async function handleSaveNote(values) {
     const priorObs = yearObservations.filter((o) => o.student_id === composerStudent.id)
@@ -233,42 +238,40 @@ export default function ClassOverview() {
         <Butterfly gradient size={26} className="class-header__butterfly class-header__butterfly--right" />
       </div>
 
-      {weeklyDigest.noteCount > 0 ? (
-        <div className="week-digest no-print">
+      <div className="week-digest no-print">
+        <div className="week-digest__row">
           <span className="week-digest__title">🌱 This week</span>
-          <div className="week-digest__stats">
-            <div className="week-digest__stat">
-              <span className="week-digest__value">{weeklyDigest.noteCount}</span>
-              <span className="week-digest__label">note{weeklyDigest.noteCount === 1 ? '' : 's'}</span>
-            </div>
-            <div className="week-digest__stat">
-              <span className="week-digest__value">
-                {weeklyDigest.studentCount}/{weeklyDigest.totalStudents}
-              </span>
-              <span className="week-digest__label">students seen</span>
-            </div>
-            {weeklyDigest.busiestDomain && (
+          {weeklyDigest.noteCount > 0 ? (
+            <div className="week-digest__stats">
+              <div className="week-digest__stat">
+                <span className="week-digest__value">{weeklyDigest.noteCount}</span>
+                <span className="week-digest__label">note{weeklyDigest.noteCount === 1 ? '' : 's'}</span>
+              </div>
               <div className="week-digest__stat">
                 <span className="week-digest__value">
-                  {weeklyDigest.busiestDomain.icon} {weeklyDigest.busiestDomain.name}
+                  {weeklyDigest.studentCount}/{weeklyDigest.totalStudents}
                 </span>
-                <span className="week-digest__label">busiest domain</span>
+                <span className="week-digest__label">students seen</span>
               </div>
-            )}
-            {weeklyDigest.firstTimeSecureCount > 0 && (
-              <div className="week-digest__stat week-digest__stat--celebrate">
-                <span className="week-digest__value">🦋 {weeklyDigest.firstTimeSecureCount}</span>
-                <span className="week-digest__label">first-time Secure</span>
-              </div>
-            )}
+            </div>
+          ) : (
+            <span className="muted">No notes logged in the last 7 days yet.</span>
+          )}
+        </div>
+
+        {weeklyDigest.latestUnitByDomain.length > 0 && (
+          <div className="week-digest__row">
+            <span className="muted utility">Currently on</span>
+            <div className="week-digest__units">
+              {weeklyDigest.latestUnitByDomain.map(({ domain, unit }) => (
+                <span key={domain.id} className="week-digest__unit-chip">
+                  {domain.icon} {domain.name}: <strong>{unit.label}</strong>
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="week-digest week-digest--quiet no-print">
-          <span className="week-digest__title">🌱 This week</span>
-          <span className="muted">No notes logged in the last 7 days yet.</span>
-        </div>
-      )}
+        )}
+      </div>
 
       <form onSubmit={runSearch} className="row">
         <input

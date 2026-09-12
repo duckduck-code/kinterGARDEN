@@ -5,6 +5,7 @@ import { QUIET_LIST_WINDOW_DAYS } from '../lib/constants'
 import { formatShortDate } from '../lib/format'
 import { LEVELS } from '../lib/constants'
 import { getCurrentLevel, getFirstTimeSecureDomains } from '../lib/levelStats'
+import { byLastName } from '../lib/sortStudents'
 import StudentAvatar from '../components/StudentAvatar.jsx'
 import { LevelIcon } from '../components/Butterfly.jsx'
 import Butterfly from '../components/Butterfly.jsx'
@@ -15,12 +16,6 @@ function daysAgoISO(days) {
   const d = new Date()
   d.setDate(d.getDate() - days)
   return d.toISOString().slice(0, 10)
-}
-
-// Only a last initial is stored (not a full last name), so "alphabetical by
-// last name" sorts on that initial, falling back to first name to break ties.
-function byLastName(a, b) {
-  return a.last_initial.localeCompare(b.last_initial) || a.first_name.localeCompare(b.first_name)
 }
 
 export default function ClassOverview() {

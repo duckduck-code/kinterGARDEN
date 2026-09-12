@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import * as api from '../lib/api'
 import { useDraft } from '../lib/useDraft'
+import { byLastName } from '../lib/sortStudents'
 import StudentAvatar from '../components/StudentAvatar.jsx'
 import LevelPicker from '../components/LevelPicker.jsx'
 import { SparkleIcon } from '../components/Butterfly.jsx'
@@ -48,7 +49,7 @@ export default function RoundsMode() {
       setSchoolYear(year)
       setDomains(domainList)
       setUnits(unitList)
-      setStudents(studentList)
+      setStudents(studentList.slice().sort(byLastName))
       setLoading(false)
     }
     load()

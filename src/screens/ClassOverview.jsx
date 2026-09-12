@@ -17,6 +17,12 @@ function daysAgoISO(days) {
   return d.toISOString().slice(0, 10)
 }
 
+// Only a last initial is stored (not a full last name), so "alphabetical by
+// last name" sorts on that initial, falling back to first name to break ties.
+function byLastName(a, b) {
+  return a.last_initial.localeCompare(b.last_initial) || a.first_name.localeCompare(b.first_name)
+}
+
 export default function ClassOverview() {
   const [schoolYear, setSchoolYear] = useState(null)
   const [students, setStudents] = useState([])
@@ -108,10 +114,10 @@ export default function ClassOverview() {
       list.sort((a, b) => {
         const av = currentLevelByStudent[a.id]?.average ?? -1
         const bv = currentLevelByStudent[b.id]?.average ?? -1
-        return bv - av || a.first_name.localeCompare(b.first_name)
+        return bv - av || byLastName(a, b)
       })
     } else {
-      list.sort((a, b) => a.first_name.localeCompare(b.first_name))
+      list.sort(byLastName)
     }
     return list
   }, [students, sortBy, currentLevelByStudent])
@@ -317,7 +323,7 @@ export default function ClassOverview() {
                 Sort by
               </label>
               <select id="sort-by" value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ maxWidth: 170 }}>
-                <option value="name">Name (A–Z)</option>
+                <option value="name">Last name (A–Z)</option>
                 <option value="level">Current level</option>
               </select>
             </div>
